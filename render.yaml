@@ -19,11 +19,10 @@ services:
         sync: false
     healthCheckPath: /health
 
-  # Frontend (Static site als web service)
+  # Frontend (Static site)
   - type: web
     name: galactische-vrienden-web
     runtime: static
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
