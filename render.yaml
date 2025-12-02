@@ -1,12 +1,11 @@
 # render.yaml - Blueprint voor Render deployment
-# Dit configureert automatisch beide services
 
 services:
   # Backend API (Gemini proxy)
   - type: web
     name: galactische-vrienden-api
     runtime: node
-    region: frankfurt  # Dichtbij Nederland
+    region: frankfurt
     plan: free
     rootDir: backend
     buildCommand: npm install
@@ -15,33 +14,23 @@ services:
       - key: NODE_ENV
         value: production
       - key: GEMINI_API_KEY
-        sync: false  # Handmatig instellen in dashboard
+        sync: false
       - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: galactische-vrienden-web
-          property: url
-    healthCheckPath: /health
+        sync: false
 
-  # Frontend (React/Vite)
-  - type: web
-    name: galactische-vrienden-web
-    runtime: static
-    region: frankfurt
-    plan: free
+# Static Sites apart van services
+staticSites:
+  - name: galactische-vrienden-web
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     envVars:
       - key: VITE_SUPABASE_URL
-        sync: false  # Handmatig instellen
+        sync: false
       - key: VITE_SUPABASE_ANON_KEY
-        sync: false  # Handmatig instellen
+        sync: false
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: galactische-vrienden-api
-          property: url
+        sync: false
     headers:
       - path: /*
         name: X-Frame-Options
