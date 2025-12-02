@@ -74,7 +74,7 @@ const FrogJump = () => (
 )
 
 // Blok stepping stone component - van originele HTML
-const SteppingStone = ({ syllable, index, isActive, isCompleted, isCurrent, onClick }) => {
+const SteppingStone = ({ syllable, index, isActive, isCompleted, isCurrent, isPrevious, onClick }) => {
   const stoneColors = [
     { bg: 'bg-emerald-500', text: 'text-white', shadow: '#065f46' },
     { bg: 'bg-lime-500', text: 'text-white', shadow: '#4d7c0f' },
@@ -84,11 +84,13 @@ const SteppingStone = ({ syllable, index, isActive, isCompleted, isCurrent, onCl
   ]
 
   const color = stoneColors[index % stoneColors.length]
+  // Vorige blok is klikbaar om terug te springen
+  const isClickable = isActive || isPrevious
 
   return (
     <button
       onClick={onClick}
-      disabled={isCompleted || isCurrent}
+      disabled={!isClickable && (isCompleted || isCurrent)}
       className={`
         relative min-w-[80px] px-5 py-4 rounded-xl font-bold text-xl
         transition-all duration-300 transform select-none
@@ -97,21 +99,26 @@ const SteppingStone = ({ syllable, index, isActive, isCompleted, isCurrent, onCl
           ? 'ring-4 ring-yellow-400 ring-offset-2 scale-110 shadow-xl animate-pulse cursor-pointer'
           : ''
         }
+        ${isPrevious
+          ? 'ring-2 ring-blue-400 hover:ring-4 hover:scale-105 cursor-pointer'
+          : ''
+        }
         ${isCurrent
           ? 'ring-2 ring-green-300 scale-100'
           : ''
         }
-        ${isCompleted
+        ${isCompleted && !isPrevious
           ? 'opacity-40 scale-90 grayscale'
           : ''
         }
-        ${!isCompleted && !isCurrent && !isActive ? 'opacity-70' : ''}
+        ${!isCompleted && !isCurrent && !isActive && !isPrevious ? 'opacity-70' : ''}
       `}
       style={{
-        boxShadow: isCompleted ? 'none' : `0 4px 0 ${color.shadow}`,
+        boxShadow: (isCompleted && !isPrevious) ? 'none' : `0 4px 0 ${color.shadow}`,
       }}
     >
       {syllable}
+      {isPrevious && <span className="absolute -top-2 -right-2 text-xs">🔄</span>}
     </button>
   )
 }
@@ -240,35 +247,71 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
     }
   }, [currentSyllableIndex, currentSentenceIndex, selectedStory, showIntro, storyCompleted, isJumping])
 
-  const handleSyllableClick = (index) => {
-    // Je klikt op het VOLGENDE blok om te springen
-    const nextIndex = currentSyllableIndex + 1
+  // Helper: spreek tekst uit en wacht tot klaar
+  const speakAndWait = (text) => {
+    return new Promise((resolve) => {
+      if (!window.speechSynthesis) {
+        resolve()
+        return
+      }
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'nl-NL'
+      utterance.rate = 0.9
+      utterance.onend = () => resolve()
+      utterance.onerror = () => resolve()
+      // Fallback timeout als onend niet fired
+      const timeout = setTimeout(resolve, 2000)
+      utterance.onend = () => {
+        clearTimeout(timeout)
+        resolve()
+      }
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.speak(utterance)
+    })
+  }
+
+  const handleSyllableClick = async (index) => {
     const sentence = selectedStory.sentences[currentSentenceIndex]
+
+    // ACHTERUIT: klik op vorige blok om nog een keer te horen
+    if (index === currentSyllableIndex - 1 && !isJumping && currentSyllableIndex > 0) {
+      setCurrentSyllableIndex(index)
+      return
+    }
+
+    // VOORUIT: klik op volgende blok om te springen
+    const nextIndex = currentSyllableIndex + 1
 
     // Check of dit het volgende blok is en we niet al springen
     if (index !== nextIndex || isJumping) return
-    if (nextIndex >= sentence.syllables.length) return
+    // Laatste blok moet ook klikbaar zijn!
+    if (nextIndex > sentence.syllables.length - 1) return
 
     // Start spring animatie
     setIsJumping(true)
 
     // Wacht tot animatie klaar is (0.6s zoals in CSS)
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsJumping(false)
       setCurrentSyllableIndex(nextIndex)
 
-      // Check of zin klaar is
-      if (nextIndex >= sentence.syllables.length - 1) {
-        // Was dit de laatste lettergreep?
+      // BELANGRIJK: Wacht tot de lettergreep is uitgesproken voordat we verder gaan
+      // De useEffect spreekt de syllable uit, dus wacht daar even op
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Check of dit de LAATSTE lettergreep was
+      if (nextIndex === sentence.syllables.length - 1) {
+        // Wacht tot speech klaar is (lettergreep wordt uitgesproken door useEffect)
+        await new Promise(resolve => setTimeout(resolve, 800))
+
+        // Nu pas naar volgende zin of einde
         if (currentSentenceIndex < selectedStory.sentences.length - 1) {
-          setTimeout(() => {
-            setCurrentSentenceIndex(prev => prev + 1)
-            setCurrentSyllableIndex(0)
-            setWorldOffset(0)
-            speak("Goed zo! Volgende zin.")
-          }, 500)
+          await speakAndWait("Goed zo! Volgende zin.")
+          setCurrentSentenceIndex(prev => prev + 1)
+          setCurrentSyllableIndex(0)
+          setWorldOffset(0)
         } else {
-          setTimeout(() => handleStoryComplete(), 500)
+          handleStoryComplete()
         }
       }
     }, 600)
@@ -487,13 +530,14 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
                         <div className="mb-1" style={{ height: '80px' }} />
                       )}
 
-                      {/* Het blok/platform - VOLGENDE is klikbaar/highlighted */}
+                      {/* Het blok/platform - VOLGENDE en VORIGE zijn klikbaar */}
                       <SteppingStone
                         syllable={syllable}
                         index={currentIdx}
                         isActive={isNextBlock && !isJumping}
                         isCompleted={isCompleted}
                         isCurrent={isCurrentBlock}
+                        isPrevious={currentIdx === currentSyllableIndex - 1 && !isJumping}
                         onClick={() => handleSyllableClick(currentIdx)}
                       />
                     </div>
