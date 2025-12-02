@@ -448,12 +448,23 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
     <div className="flex flex-col items-center max-w-4xl mx-auto page-transition select-none">
       {/* Header */}
       <div className="w-full flex justify-between items-center mb-6 bg-white/50 p-4 rounded-2xl">
-        <button
-          onClick={handleBackToStories}
-          className="flex items-center gap-2 opacity-60 hover:opacity-100 font-bold transition"
-        >
-          <ArrowLeft size={20} /> Stop
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleBackToStories}
+            className="flex items-center gap-2 opacity-60 hover:opacity-100 font-bold transition"
+          >
+            <ArrowLeft size={20} /> Stop
+          </button>
+          {/* Vorige lettergreep knop */}
+          {currentSyllableIndex > 0 && !isJumping && (
+            <button
+              onClick={() => handleSyllableClick(currentSyllableIndex - 1)}
+              className="ml-4 flex items-center gap-1 bg-lime-100 text-lime-700 px-3 py-1 rounded-lg font-bold hover:bg-lime-200 transition"
+            >
+              ⬅️ Vorige
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2 bg-lime-100 text-lime-800 px-4 py-2 rounded-xl font-bold">
           <span>{selectedStory.icon}</span>
           <span>{selectedStory.title}</span>
@@ -477,7 +488,7 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
           </button>
         </div>
         <p className="text-2xl md:text-3xl font-bold text-center text-gray-800">
-          {currentSentence.text}
+          {currentSentence.text.replace(/-/g, '')}
         </p>
       </div>
 
@@ -537,8 +548,20 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
                     >
                       {/* Kikker staat BOVEN het huidige blok */}
                       {isCurrentBlock && (
-                        <div className={`mb-1 ${isJumping ? 'animate-jump-vertical' : ''}`}>
-                          {isJumping ? <FrogJump /> : <FrogSit />}
+                        <div className="relative">
+                          {/* Klikbare zone LINKS van kikker om achteruit te gaan */}
+                          {currentSyllableIndex > 0 && !isJumping && (
+                            <button
+                              onClick={() => handleSyllableClick(currentSyllableIndex - 1)}
+                              className="absolute -left-12 top-0 bottom-0 w-12 flex items-center justify-center text-2xl opacity-50 hover:opacity-100 transition"
+                              title="Terug"
+                            >
+                              ⬅️
+                            </button>
+                          )}
+                          <div className={`mb-1 ${isJumping ? 'animate-jump-vertical' : ''}`}>
+                            {isJumping ? <FrogJump /> : <FrogSit />}
+                          </div>
                         </div>
                       )}
 

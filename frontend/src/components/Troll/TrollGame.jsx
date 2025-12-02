@@ -396,6 +396,15 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
     setHeldIndex(null)
   }
 
+  // Ga naar vorig woord
+  const goToPreviousWord = () => {
+    if (playingGenerated) {
+      if (generatedIndex > 0) setGeneratedIndex(i => i - 1)
+    } else {
+      if (currentIndex > 0) setCurrentIndex(c => c - 1)
+    }
+  }
+
   const handleSuccess = (index) => {
     setExplodedIndex(index)
     createExplosionSound() // BOEM!
@@ -406,6 +415,7 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
     setTimeout(() => speakSlowDeep(randomSound), 100)
     setTimeout(() => speak("Goed zo!"), 1200)
 
+    // Extra tijd (3 sec) zodat kind het woord kan lezen
     setTimeout(() => {
       setExplodedIndex(null)
       if (playingGenerated) {
@@ -423,7 +433,7 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
           addStars(TROLL_STARS_REWARD)
         }
       }
-    }, 2000)
+    }, 3500) // Was 2000, nu 3500 voor extra leestijd
   }
 
   // SVG Trol voor intro scherm
@@ -605,9 +615,20 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
     <div className="flex flex-col items-center max-w-4xl mx-auto select-none">
       {/* Header */}
       <div className="w-full flex justify-between items-center mb-8 bg-white/50 p-4 rounded-2xl">
-        <button onClick={onBack} className="flex items-center gap-2 opacity-60 font-bold">
-          <ArrowLeft size={20} /> Stop
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={onBack} className="flex items-center gap-2 opacity-60 font-bold hover:opacity-100 transition">
+            <ArrowLeft size={20} /> Stop
+          </button>
+          {/* Vorig woord knop */}
+          {activeIndex > 0 && (
+            <button
+              onClick={goToPreviousWord}
+              className="ml-4 flex items-center gap-1 bg-purple-100 text-purple-700 px-3 py-1 rounded-lg font-bold hover:bg-purple-200 transition"
+            >
+              ⬅️ Vorige
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-xl font-bold">
           {playingGenerated && <span className="text-pink-500">✨</span>}
           <span>👾 {activeIndex + 1} / {activeWords.length}</span>
