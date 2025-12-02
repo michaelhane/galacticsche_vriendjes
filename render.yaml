@@ -17,10 +17,13 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+    healthCheckPath: /health
 
-# Static Sites apart van services
-staticSites:
-  - name: galactische-vrienden-web
+  # Frontend (Static site als web service)
+  - type: web
+    name: galactische-vrienden-web
+    runtime: static
+    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
@@ -31,13 +34,6 @@ staticSites:
         sync: false
       - key: VITE_API_URL
         sync: false
-    headers:
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
     routes:
       - type: rewrite
         source: /*
