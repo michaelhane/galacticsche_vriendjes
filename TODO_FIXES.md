@@ -1,65 +1,58 @@
 # Galactische Vrienden - Bug Fixes & Verbeteringen
 
-## Kritieke Bugs (voor volgende sprint)
+## ✅ VOLTOOID
 
-### 1. Lettergreep Springer - Laatste lettergreep niet hoorbaar
-- **Probleem**: Bij de laatste lettergreep van een zin wordt de audio afgebroken
-- **Oorzaak**: `handleSyllableClick` checkt `nextIndex >= sentence.syllables.length - 1` en gaat direct naar volgende zin
-- **Fix**: Wacht tot speech klaar is voordat naar volgende zin wordt gegaan
+### 1. Lettergreep Springer - Laatste lettergreep niet hoorbaar ✅
+- **Probleem**: Bij de laatste lettergreep van een zin werd de audio afgebroken
+- **Fix**: `speakAndWait` helper toegevoegd die wacht op `onend` event voordat naar volgende zin wordt gegaan
+- **Commit**: fdad5a8
 
-### 2. Lettergreep Springer - Laatste blok niet klikbaar
-- **Probleem**: Je kunt niet naar het laatste blok springen
-- **Oorzaak**: `if (nextIndex >= sentence.syllables.length) return` blokkeert de laatste sprong
-- **Fix**: Logica aanpassen zodat laatste blok wel bereikbaar is
+### 2. Lettergreep Springer - Laatste blok niet klikbaar ✅
+- **Probleem**: Je kon niet naar het laatste blok springen
+- **Fix**: `>= sentence.syllables.length` gewijzigd naar `> sentence.syllables.length - 1`
+- **Commit**: fdad5a8
 
-### 3. Lettergreep Springer - Achteruit springen
-- **Feature request**: Als je op het VORIGE blok klikt, spring achteruit
-- **Doel**: Kind kan lettergreep nog een keer horen
-- **Implementatie**: `handleSyllableClick` uitbreiden voor `index === currentSyllableIndex - 1`
+### 3. Lettergreep Springer - Achteruit springen ✅
+- **Feature**: Klik op VORIGE blok om achteruit te springen en lettergreep nog een keer te horen
+- **Fix**: `handleSyllableClick` uitgebreid voor `index === currentSyllableIndex - 1`
+- **Visueel**: 🔄 icoon op vorig blok toont dat het klikbaar is
+- **Commit**: fdad5a8
 
-### 4. TrollGame - Laatste woord breekt af
-- **Probleem**: Bij het laatste woord wordt soms te vroeg afgebroken
-- **Oorzaak**: Vergelijkbare timing issues met speech synthesis
-- **Fix**: Speech completion callback gebruiken
+### 4. Speech Synthesis Timing ✅
+- **Fix**: `speakAndWait(text)` helper functie toegevoegd die Promise returnt
+- **Gebruikt**: `onend` event met fallback timeout (2000ms)
+- **Commit**: fdad5a8
 
-### 5. Code Kraken - Mogelijk zelfde probleem
-- **Check**: Testen of laatste level/woord correct werkt
+### 5. Demo Mode - Progress opslaan ✅
+- **Fix**: localStorage gebruikt voor demo mode progress
+- **Key**: `galactische_vrienden_demo_progress`
+- **Opgeslagen**: stars, completedLevels, unlockedItems
+- **Commit**: 70219ac
+
+### 6. Render.com Deployment ✅
+- **Git repo**: https://github.com/michaelhane/galacticsche_vriendjes.git
+- **Frontend**: https://galactische-vrienden-web.onrender.com
+- **Backend**: https://galactische-vrienden-api.onrender.com
+- **Commits**: render.yaml fixes (ca1f431, f87a782, 2e50acb)
 
 ## Medium Prioriteit
 
-### 6. Speech Synthesis Timing
-- Algemene verbetering: `onend` event gebruiken i.p.v. vaste timeouts
-- Helper functie maken: `speakAndWait(text)` die Promise returnt
-
-### 7. Demo Mode - Progress opslaan
-- **Huidige situatie**: Demo mode heeft GEEN persistent geheugen
-- **Fix**: Progress opslaan in localStorage voor demo users
-- **Locatie**: `useProgress.js` - check voor demo mode en gebruik localStorage
-
-### 8. Demo Mode UX
+### 7. Demo Mode UX
 - Duidelijker maken dat je in demo mode zit
 - Optie om naar echte login te gaan
 
+### 8. TrollGame - Scheetgeluid/animatie sync
+- Scheetgeluid en visuele animatie beter synchroniseren
+
 ## Lage Prioriteit
 
-### 7. Animatie synchronisatie TrollGame
-- Scheet geluid en visuele animatie beter syncen
-
-### 8. Generated Story Reader
+### 9. Generated Story Reader
 - Route `currentView === 'generated-reader'` implementeren
 - Zelfde ReadingRuler als StoryMenu gebruiken
 
-## Deployment Checklist
-
-- [ ] Git repo initialiseren
-- [ ] .gitignore check (node_modules, .env)
-- [ ] Environment variables documenteren
-- [ ] Build testen (`npm run build`)
-- [ ] Render.com deployment
-
 ## Notities
 
-De speech synthesis timing verschilt per browser. Overweeg:
-1. `utterance.onend` callback voor betrouwbare timing
-2. Fallback timeout als onend niet fired
-3. Queue systeem voor meerdere utterances
+De speech synthesis timing verschilt per browser. Implementatie:
+1. `utterance.onend` callback voor betrouwbare timing ✅
+2. Fallback timeout (2000ms) als onend niet fired ✅
+3. `speakAndWait(text)` helper die Promise returnt ✅
