@@ -250,18 +250,35 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
   // Helper: spreek tekst uit en wacht tot klaar
   const speakAndWait = (text) => {
     return new Promise((resolve) => {
+      // Fallback timeout voor alle gevallen
+      const timeout = setTimeout(resolve, 2000)
+
+      // ResponsiveVoice fallback voor Android
+      if (window.responsiveVoice?.voiceSupport()) {
+        window.responsiveVoice.speak(text, 'Dutch Female', {
+          rate: 0.9,
+          onend: () => {
+            clearTimeout(timeout)
+            resolve()
+          }
+        })
+        return
+      }
+
+      // Native Web Speech API
       if (!window.speechSynthesis) {
+        clearTimeout(timeout)
         resolve()
         return
       }
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = 'nl-NL'
       utterance.rate = 0.9
-      utterance.onend = () => resolve()
-      utterance.onerror = () => resolve()
-      // Fallback timeout als onend niet fired
-      const timeout = setTimeout(resolve, 2000)
       utterance.onend = () => {
+        clearTimeout(timeout)
+        resolve()
+      }
+      utterance.onerror = () => {
         clearTimeout(timeout)
         resolve()
       }

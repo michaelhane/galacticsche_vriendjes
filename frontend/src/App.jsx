@@ -19,12 +19,44 @@ import { StoryMaker } from './components/Stories/StoryMaker'
 import { GeneratedStoryReader } from './components/Stories/GeneratedStoryReader'
 import { SettingsView } from './components/SettingsView'
 
-// Speech helper
+// Test of native speech werkt (eenmalig)
+let useResponsiveVoice = false
+const testNativeSpeech = () => {
+  if (typeof window === 'undefined') return
+  // Check of voices beschikbaar zijn
+  const voices = window.speechSynthesis?.getVoices() || []
+  const hasNLVoice = voices.some(v => v.lang.includes('nl'))
+  // Op Android/Samsung werkt native TTS vaak niet goed
+  const isAndroid = /Android/i.test(navigator.userAgent)
+  const isSamsung = /Samsung/i.test(navigator.userAgent)
+  useResponsiveVoice = !hasNLVoice || isAndroid || isSamsung
+}
+// Test bij laden en na voices loaded
+if (typeof window !== 'undefined') {
+  testNativeSpeech()
+  window.speechSynthesis?.addEventListener?.('voiceschanged', testNativeSpeech)
+}
+
+// Speech helper met ResponsiveVoice fallback
 const speak = (text) => {
+  // Probeer ResponsiveVoice eerst op problematische devices
+  if (useResponsiveVoice && window.responsiveVoice?.voiceSupport()) {
+    window.responsiveVoice.cancel()
+    window.responsiveVoice.speak(text, 'Dutch Female', { rate: 0.9 })
+    return
+  }
+
+  // Native Web Speech API
   window.speechSynthesis.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = 'nl-NL'
   utterance.rate = 0.85
+
+  // Probeer Nederlandse stem te vinden
+  const voices = window.speechSynthesis.getVoices()
+  const nlVoice = voices.find(v => v.lang.includes('nl'))
+  if (nlVoice) utterance.voice = nlVoice
+
   window.speechSynthesis.speak(utterance)
 }
 

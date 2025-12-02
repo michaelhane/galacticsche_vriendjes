@@ -91,6 +91,12 @@ const createExplosionSound = () => {
 
 // Grappige trage mannenstem voor KABOEM
 const speakSlowDeep = (text) => {
+  // ResponsiveVoice fallback voor Android
+  if (window.responsiveVoice?.voiceSupport()) {
+    window.responsiveVoice.speak(text, 'Dutch Male', { rate: 0.5, pitch: 0.3 })
+    return
+  }
+
   const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = 'nl-NL'
   utterance.rate = 0.4  // Heel langzaam
@@ -157,8 +163,9 @@ const Troll = ({ children, inflation, isExploding, showFart, onStartHold, onEndH
         onMouseDown={onStartHold}
         onMouseUp={onEndHold}
         onMouseLeave={onEndHold}
-        onTouchStart={onStartHold}
-        onTouchEnd={onEndHold}
+        onTouchStart={(e) => { e.preventDefault(); onStartHold(); }}
+        onTouchEnd={(e) => { e.preventDefault(); onEndHold(); }}
+        onContextMenu={(e) => e.preventDefault()}
         className={`
           relative cursor-pointer transition-transform duration-100
           ${isExploding ? 'animate-explode-dramatic' : ''}
@@ -257,6 +264,7 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
   const [error, setError] = useState(null)
   const [playingGenerated, setPlayingGenerated] = useState(false)
   const [generatedIndex, setGeneratedIndex] = useState(0)
+  const isProcessingRef = useRef(false) // Voorkom dubbele explosies
 
   // Load generated words from localStorage
   useEffect(() => {
@@ -321,6 +329,7 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
     setInflations({})
     setExplodedIndex(null)
     setFartingIndex(null)
+    isProcessingRef.current = false // Reset voor nieuw woord
 
     if (!showIntro && !completed && activeWords.length > 0) {
       const word = activeWords[activeIndex]?.word?.replace(/-/g, '') || ''
@@ -345,7 +354,8 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
           let newVal = currentVal + 2
           if (!isCorrect && newVal > 40) newVal = 40
 
-          if (isCorrect && newVal >= 100) {
+          if (isCorrect && newVal >= 100 && !isProcessingRef.current) {
+            isProcessingRef.current = true
             clearInterval(timerRef.current)
             handleSuccess(heldIndex)
             return prev
