@@ -2,9 +2,38 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from './useAuth'
 
+// localStorage keys voor demo mode
+const DEMO_STORAGE_KEY = 'galactische_vrienden_demo_progress'
+
+// Helper functies voor demo localStorage
+const loadDemoProgress = () => {
+  try {
+    const saved = localStorage.getItem(DEMO_STORAGE_KEY)
+    if (saved) {
+      return JSON.parse(saved)
+    }
+  } catch (e) {
+    console.error('Error loading demo progress:', e)
+  }
+  // Defaults
+  return {
+    stars: 50,
+    completedLevels: { code_kraken: [], stories: [], jumper: [], troll: [] },
+    unlockedItems: ['plant-alien']
+  }
+}
+
+const saveDemoProgress = (progress) => {
+  try {
+    localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(progress))
+  } catch (e) {
+    console.error('Error saving demo progress:', e)
+  }
+}
+
 export const useProgress = () => {
-  const { user, profile } = useAuth()
-  const [stars, setStarsState] = useState(20)
+  const { user, profile, isDemoMode } = useAuth()
+  const [stars, setStarsState] = useState(50)
   const [completedLevels, setCompletedLevels] = useState({
     code_kraken: [],
     stories: [],
@@ -14,18 +43,36 @@ export const useProgress = () => {
   const [unlockedItems, setUnlockedItemsState] = useState(['plant-alien'])
   const [loading, setLoading] = useState(true)
 
-  // Laad voortgang bij login
+  // Laad voortgang bij login of demo mode
   useEffect(() => {
-    if (user) {
+    if (isDemoMode) {
+      // Demo mode: laad uit localStorage
+      const demoProgress = loadDemoProgress()
+      setStarsState(demoProgress.stars)
+      setCompletedLevels(demoProgress.completedLevels)
+      setUnlockedItemsState(demoProgress.unlockedItems)
+      setLoading(false)
+    } else if (user) {
       loadProgress()
     } else {
-      // Reset naar defaults als niet ingelogd
+      // Niet ingelogd en geen demo: reset naar defaults
       setStarsState(20)
       setCompletedLevels({ code_kraken: [], stories: [], jumper: [], troll: [] })
       setUnlockedItemsState(['plant-alien'])
       setLoading(false)
     }
-  }, [user])
+  }, [user, isDemoMode])
+
+  // Sla demo progress op bij elke wijziging
+  useEffect(() => {
+    if (isDemoMode) {
+      saveDemoProgress({
+        stars,
+        completedLevels,
+        unlockedItems
+      })
+    }
+  }, [stars, completedLevels, unlockedItems, isDemoMode])
 
   const loadProgress = async () => {
     if (!user) return
@@ -78,13 +125,14 @@ export const useProgress = () => {
     const newStars = stars + amount
     setStarsState(newStars)
 
-    if (user) {
+    // Voor demo mode wordt automatisch opgeslagen via useEffect
+    if (user && !isDemoMode) {
       await supabase
         .from('profiles')
         .update({ stars: newStars, updated_at: new Date().toISOString() })
         .eq('id', user.id)
     }
-  }, [stars, user])
+  }, [stars, user, isDemoMode])
 
   // Sterren aftrekken (voor aankopen)
   const spendStars = useCallback(async (amount) => {
@@ -93,14 +141,15 @@ export const useProgress = () => {
     const newStars = stars - amount
     setStarsState(newStars)
 
-    if (user) {
+    // Voor demo mode wordt automatisch opgeslagen via useEffect
+    if (user && !isDemoMode) {
       await supabase
         .from('profiles')
         .update({ stars: newStars, updated_at: new Date().toISOString() })
         .eq('id', user.id)
     }
     return true
-  }, [stars, user])
+  }, [stars, user, isDemoMode])
 
   // Level voltooien
   const completeLevel = useCallback(async (gameType, levelId, starsEarned = 0) => {
@@ -118,8 +167,8 @@ export const useProgress = () => {
       await addStars(starsEarned)
     }
 
-    // Opslaan in database
-    if (user) {
+    // Opslaan in database (niet voor demo mode - dat gaat via localStorage)
+    if (user && !isDemoMode) {
       await supabase
         .from('completed_levels')
         .upsert({
@@ -132,7 +181,7 @@ export const useProgress = () => {
           onConflict: 'user_id,game_type,level_id'
         })
     }
-  }, [user, addStars])
+  }, [user, addStars, isDemoMode])
 
   // Check of level unlocked is
   const isLevelUnlocked = useCallback((gameType, levelId) => {
@@ -153,8 +202,8 @@ export const useProgress = () => {
     // Voeg item toe
     setUnlockedItemsState(prev => [...prev, itemId])
 
-    // Opslaan in database
-    if (user) {
+    // Opslaan in database (niet voor demo mode - dat gaat via localStorage)
+    if (user && !isDemoMode) {
       await supabase
         .from('user_items')
         .insert({
@@ -164,7 +213,7 @@ export const useProgress = () => {
     }
 
     return { success: true }
-  }, [stars, unlockedItems, spendStars, user])
+  }, [stars, unlockedItems, spendStars, user, isDemoMode])
 
   return {
     stars,
