@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom animaties */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes explode {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.8; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+/* Dramatische explosie animatie */
+@keyframes explode-dramatic {
+  0% { transform: scale(1.8) rotate(0deg); opacity: 1; filter: brightness(1); }
+  10% { transform: scale(2.2) rotate(10deg); opacity: 1; filter: brightness(2); }
+  20% { transform: scale(1.9) rotate(-8deg); opacity: 0.9; filter: brightness(1.5); }
+  40% { transform: scale(2.5) rotate(15deg); opacity: 0.7; filter: brightness(1.8); }
+  60% { transform: scale(0.8) rotate(-20deg); opacity: 0.5; }
+  80% { transform: scale(0.3) rotate(30deg); opacity: 0.2; }
+  100% { transform: scale(0) rotate(45deg); opacity: 0; }
+}
+
+.animate-explode-dramatic {
+  animation: explode-dramatic 0.8s ease-out forwards;
+}
+
+/* Explosie flash */
+@keyframes explosion-flash {
+  0% { transform: scale(0.5); opacity: 0; }
+  20% { transform: scale(2); opacity: 0.8; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+.animate-explosion-flash {
+  animation: explosion-flash 0.5s ease-out forwards;
+}
+
+/* Explosie deeltjes */
+@keyframes explosion-particle {
+  0% {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateX(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateX(150px) scale(0.3);
+    opacity: 0;
+  }
+}
+
+.animate-explosion-particle {
+  animation: explosion-particle 0.8s ease-out forwards;
+}
+
+@keyframes poof {
+  0% { transform: scale(0.5) translateY(0); opacity: 0; }
+  50% { opacity: 0.8; }
+  100% { transform: scale(1.5) translateY(-20px); opacity: 0; }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.3s ease-in-out;
+}
+
+.animate-explode {
+  animation: explode 0.6s ease-out forwards;
+}
+
+.animate-poof {
+  animation: poof 1s ease-out forwards;
+}
+
+/* Kikker Spring Animatie - BOOG NAAR RECHTS MET SALTO */
+@keyframes jump-arc {
+  0% {
+    transform: translateX(0) translateY(0) scale(1) rotate(0deg);
+  }
+  25% {
+    transform: translateX(20px) translateY(-120px) scale(1.15) rotate(90deg);
+  }
+  50% {
+    transform: translateX(50px) translateY(-150px) scale(1.2) rotate(180deg);
+  }
+  75% {
+    transform: translateX(70px) translateY(-100px) scale(1.15) rotate(270deg);
+  }
+  100% {
+    transform: translateX(84px) translateY(0) scale(1) rotate(360deg);
+  }
+}
+
+.animate-jump-vertical {
+  animation: jump-arc 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Vibrate animatie voor Troll */
+@keyframes vibrate {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(-2px, 2px) rotate(-1deg); }
+  50% { transform: translate(2px, -2px) rotate(1deg); }
+  75% { transform: translate(-2px, -2px) rotate(-1deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.animate-vibrate {
+  animation: vibrate 0.1s infinite;
+}
+
+/* Spin slow voor loading */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+/* Voorkom selectie in games */
+.select-none {
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Font classes */
+.font-comic {
+  font-family: 'Comic Neue', cursive;
+}
+
+/* Smooth page transitions */
+.page-transition {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
