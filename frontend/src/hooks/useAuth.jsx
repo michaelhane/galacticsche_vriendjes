@@ -71,7 +71,29 @@ export const AuthProvider = ({ children }) => {
     setLoading(false)
   }
 
-  // Magic Link login
+  // OTP login - stuurt 6-cijferige code naar email
+  const signInWithOtp = async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        // Geen redirect URL = alleen code, geen magic link
+        shouldCreateUser: true
+      }
+    })
+    return { error }
+  }
+
+  // Verifieer de OTP code
+  const verifyOtp = async (email, token) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email'
+    })
+    return { error }
+  }
+
+  // Legacy: Magic Link login (backup)
   const signInWithMagicLink = async (email) => {
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -126,6 +148,8 @@ export const AuthProvider = ({ children }) => {
     user,
     profile,
     loading,
+    signInWithOtp,
+    verifyOtp,
     signInWithMagicLink,
     signInDemo,
     signOut,

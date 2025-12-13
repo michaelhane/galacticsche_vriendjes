@@ -3,15 +3,16 @@ import { useAuth } from '../../hooks/useAuth'
 
 export const Login = () => {
   const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState(null)
-  const { signInWithMagicLink, signInDemo } = useAuth()
+  const [step, setStep] = useState('email') // 'email' of 'code'
+  const { signInWithOtp, verifyOtp, signInDemo } = useAuth()
 
   // Check voor geheime start parameter in URL: ?start=ruimte
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('start') === 'ruimte') {
-      // Verwijder parameter uit URL (zodat refresh niet opnieuw triggert)
       window.history.replaceState({}, '', window.location.pathname)
       signInDemo()
     }
@@ -46,23 +47,43 @@ export const Login = () => {
     }
   }
 
-  const handleSubmit = async (e) => {
+  // Stap 1: Vraag code aan via email
+  const handleRequestCode = async (e) => {
     e.preventDefault()
     if (!email) return
 
     setLoading(true)
     setMessage(null)
 
-    const { error } = await signInWithMagicLink(email)
+    const { error } = await signInWithOtp(email)
 
     if (error) {
       setMessage({ type: 'error', text: 'Er ging iets mis. Probeer opnieuw.' })
     } else {
-      setMessage({ 
-        type: 'success', 
-        text: '✨ Check je email! Klik op de link om in te loggen.' 
+      setStep('code')
+      setMessage({
+        type: 'success',
+        text: '✨ Code verstuurd! Check de email.'
       })
     }
+    setLoading(false)
+  }
+
+  // Stap 2: Verifieer de code
+  const handleVerifyCode = async (e) => {
+    e.preventDefault()
+    if (!code || code.length < 6) return
+
+    setLoading(true)
+    setMessage(null)
+
+    const { error } = await verifyOtp(email, code)
+
+    if (error) {
+      setMessage({ type: 'error', text: 'Code onjuist. Probeer opnieuw.' })
+      setCode('')
+    }
+    // Als success, wordt automatisch ingelogd via onAuthStateChange
     setLoading(false)
   }
 
@@ -85,39 +106,89 @@ export const Login = () => {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              📧 Email van papa of mama
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="email@voorbeeld.nl"
-              className="w-full text-lg p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none"
-              required
-            />
-          </div>
+        {step === 'email' ? (
+          <form onSubmit={handleRequestCode} className="space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                📧 Email van papa of mama
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@voorbeeld.nl"
+                className="w-full text-lg p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none"
+                required
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading || !email}
-            className={`w-full py-4 rounded-2xl text-xl font-bold transition transform hover:scale-105 ${
-              loading || !email
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg'
-            }`}
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin">🌀</span> Even wachten...
-              </span>
-            ) : (
-              '🔮 Stuur Magic Link'
-            )}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading || !email}
+              className={`w-full py-4 rounded-2xl text-xl font-bold transition transform hover:scale-105 ${
+                loading || !email
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg'
+              }`}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin">🌀</span> Even wachten...
+                </span>
+              ) : (
+                '📨 Stuur Code'
+              )}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleVerifyCode} className="space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                🔢 Voer de 6-cijferige code in
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                className="w-full text-3xl text-center tracking-[0.5em] p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none font-mono"
+                autoFocus
+              />
+              <p className="text-sm text-gray-500 mt-2 text-center">
+                Verstuurd naar {email}
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || code.length < 6}
+              className={`w-full py-4 rounded-2xl text-xl font-bold transition transform hover:scale-105 ${
+                loading || code.length < 6
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-green-500 hover:bg-green-600 text-white shadow-lg'
+              }`}
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin">🌀</span> Controleren...
+                </span>
+              ) : (
+                '✓ Inloggen'
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setStep('email'); setCode(''); setMessage(null) }}
+              className="w-full py-2 text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              ← Andere email gebruiken
+            </button>
+          </form>
+        )}
 
         {message && (
           <div className={`mt-6 p-4 rounded-2xl text-center ${
@@ -131,8 +202,10 @@ export const Login = () => {
 
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
-            We sturen een veilige link naar je email.<br/>
-            Geen wachtwoord nodig! 🎉
+            {step === 'email'
+              ? 'We sturen een 6-cijferige code naar je email.'
+              : 'De code is 10 minuten geldig.'
+            }
           </p>
         </div>
       </div>
