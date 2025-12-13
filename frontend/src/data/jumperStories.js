@@ -106,6 +106,114 @@ export const jumperStories = [
       { text: "Hij oe-fent zijn boe-ge-luid.", syllables: ["Hij", "oe", "fent", "zijn", "boe", "ge", "luid"] },
       { text: "Boe! Wil je met mij spe-len?", syllables: ["Boe", "Wil", "je", "met", "mij", "spe", "len"] }
     ]
+  },
+  // === FOCUS: be- voorvoegsel ===
+  {
+    id: 8,
+    title: "De Tovenaar",
+    icon: "🧙",
+    difficulty: 2,
+    sentences: [
+      { text: "De to-ve-naar be-kijkt zijn boek.", syllables: ["De", "to", "ve", "naar", "be", "kijkt", "zijn", "boek"] },
+      { text: "Hij be-denkt een spreuk.", syllables: ["Hij", "be", "denkt", "een", "spreuk"] },
+      { text: "De staf be-gint te gloei-en.", syllables: ["De", "staf", "be", "gint", "te", "gloei", "en"] },
+      { text: "Hij be-weegt zijn han-den.", syllables: ["Hij", "be", "weegt", "zijn", "han", "den"] },
+      { text: "De to-ver-drank be-gint te bor-re-len.", syllables: ["De", "to", "ver", "drank", "be", "gint", "te", "bor", "re", "len"] }
+    ]
+  },
+  {
+    id: 9,
+    title: "De Bakker",
+    icon: "🥐",
+    difficulty: 2,
+    sentences: [
+      { text: "De bak-ker be-gint vroeg.", syllables: ["De", "bak", "ker", "be", "gint", "vroeg"] },
+      { text: "Hij be-kijkt het re-cept.", syllables: ["Hij", "be", "kijkt", "het", "re", "cept"] },
+      { text: "De bak-ker be-strooit het brood.", syllables: ["De", "bak", "ker", "be", "strooit", "het", "brood"] },
+      { text: "Hij be-waart de koek-jes.", syllables: ["Hij", "be", "waart", "de", "koek", "jes"] },
+      { text: "De win-kel be-gint om acht uur.", syllables: ["De", "win", "kel", "be", "gint", "om", "acht", "uur"] }
+    ]
+  },
+  // === FOCUS: ver- voorvoegsel ===
+  {
+    id: 10,
+    title: "De Goochelaar",
+    icon: "🎩",
+    difficulty: 2,
+    sentences: [
+      { text: "De goo-che-laar ver-stopt een kaart.", syllables: ["De", "goo", "che", "laar", "ver", "stopt", "een", "kaart"] },
+      { text: "Het ko-nijn ver-dwijnt!", syllables: ["Het", "ko", "nijn", "ver", "dwijnt"] },
+      { text: "Het pu-bliek is ver-baasd.", syllables: ["Het", "pu", "bliek", "is", "ver", "baasd"] },
+      { text: "Hij ver-telt een grap.", syllables: ["Hij", "ver", "telt", "een", "grap"] },
+      { text: "De show ver-an-dert al-les.", syllables: ["De", "show", "ver", "an", "dert", "al", "les"] }
+    ]
+  },
+  {
+    id: 11,
+    title: "De Verhuizing",
+    icon: "📦",
+    difficulty: 3,
+    sentences: [
+      { text: "De fa-mi-lie ver-huist.", syllables: ["De", "fa", "mi", "lie", "ver", "huist"] },
+      { text: "Ze ver-pak-ken al-les.", syllables: ["Ze", "ver", "pak", "ken", "al", "les"] },
+      { text: "De do-zen ver-dwij-nen in de vracht-wa-gen.", syllables: ["De", "do", "zen", "ver", "dwij", "nen", "in", "de", "vracht", "wa", "gen"] },
+      { text: "Ze ver-la-ten het ou-de huis.", syllables: ["Ze", "ver", "la", "ten", "het", "ou", "de", "huis"] },
+      { text: "De kin-de-ren ver-ken-nen hun ka-mer.", syllables: ["De", "kin", "de", "ren", "ver", "ken", "nen", "hun", "ka", "mer"] }
+    ]
+  },
+  // === FOCUS: ge- voorvoegsel ===
+  {
+    id: 12,
+    title: "Het Geheim",
+    icon: "🔮",
+    difficulty: 2,
+    sentences: [
+      { text: "Er ge-beurt iets vreemds.", syllables: ["Er", "ge", "beurt", "iets", "vreemds"] },
+      { text: "Ik hoor een ge-luid.", syllables: ["Ik", "hoor", "een", "ge", "luid"] },
+      { text: "Het is een ge-heim!", syllables: ["Het", "is", "een", "ge", "heim"] },
+      { text: "Ik ge-loof mijn o-gen niet.", syllables: ["Ik", "ge", "loof", "mijn", "o", "gen", "niet"] },
+      { text: "Dit is ge-wel-dig!", syllables: ["Dit", "is", "ge", "wel", "dig"] }
+    ]
+  },
+  {
+    id: 13,
+    title: "De Verjaardag",
+    icon: "🎂",
+    difficulty: 2,
+    sentences: [
+      { text: "Het feest ge-beurt van-daag.", syllables: ["Het", "feest", "ge", "beurt", "van", "daag"] },
+      { text: "De gas-ten ge-bruiken ser-vet-ten.", syllables: ["De", "gas", "ten", "ge", "brui", "ken", "ser", "vet", "ten"] },
+      { text: "Ik ge-niet van de taart.", syllables: ["Ik", "ge", "niet", "van", "de", "taart"] },
+      { text: "Het ca-deau is ge-pakt.", syllables: ["Het", "ca", "deau", "is", "ge", "pakt"] },
+      { text: "Wat een ge-luk-ki-ge dag!", syllables: ["Wat", "een", "ge", "luk", "ki", "ge", "dag"] }
+    ]
+  },
+  // === MIX: be-, ver-, ge- samen ===
+  {
+    id: 14,
+    title: "De Ontdekker",
+    icon: "🧭",
+    difficulty: 3,
+    sentences: [
+      { text: "De ont-dek-ker be-kijkt de kaart.", syllables: ["De", "ont", "dek", "ker", "be", "kijkt", "de", "kaart"] },
+      { text: "Hij ver-trekt op reis.", syllables: ["Hij", "ver", "trekt", "op", "reis"] },
+      { text: "Er ge-beurt iets span-nends.", syllables: ["Er", "ge", "beurt", "iets", "span", "nends"] },
+      { text: "Hij be-reikt de berg-top.", syllables: ["Hij", "be", "reikt", "de", "berg", "top"] },
+      { text: "De ont-dek-ker ver-telt zijn ver-haal.", syllables: ["De", "ont", "dek", "ker", "ver", "telt", "zijn", "ver", "haal"] }
+    ]
+  },
+  {
+    id: 15,
+    title: "De Dierenverzorger",
+    icon: "🦁",
+    difficulty: 3,
+    sentences: [
+      { text: "De ver-zor-ger be-gint zijn werk.", syllables: ["De", "ver", "zor", "ger", "be", "gint", "zijn", "werk"] },
+      { text: "Hij ge-bruikt een em-mer.", syllables: ["Hij", "ge", "bruikt", "een", "em", "mer"] },
+      { text: "De leeuw ver-wacht zijn eten.", syllables: ["De", "leeuw", "ver", "wacht", "zijn", "e", "ten"] },
+      { text: "De a-pen ge-dra-gen zich gek.", syllables: ["De", "a", "pen", "ge", "dra", "gen", "zich", "gek"] },
+      { text: "Hij be-schermt de die-ren.", syllables: ["Hij", "be", "schermt", "de", "die", "ren"] }
+    ]
   }
 ]
 
