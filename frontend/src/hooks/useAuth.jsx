@@ -3,10 +3,9 @@ import { supabase } from '../supabaseClient'
 
 const AuthContext = createContext({})
 
-// Demo mode check - standaard AAN voor makkelijk testen
+// Demo mode check - standaard UIT (moet expliciet geactiveerd worden)
 const isDemoMode = () => {
-  // Als niet expliciet uitgezet, is demo mode aan
-  return localStorage.getItem('demo_mode') !== 'false'
+  return localStorage.getItem('demo_mode') === 'true'
 }
 
 const DEMO_PROFILE = {

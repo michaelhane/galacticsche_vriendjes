@@ -2,14 +2,15 @@
 
 ## Project Overzicht
 
-Galactische Vrienden is een educatieve leesapp voor kinderen in groep 3-5. De app helpt kinderen met lettergrepen, klemtoon en woordstructuur door middel van interactieve spelletjes.
+Galactische Vrienden is een educatieve leesapp voor kinderen in groep 3-5. De app helpt kinderen met lettergrepen, klemtoon en woordstructuur door middel van interactieve spelletjes. Inclusief ouder dashboard, weekwoorden en boek scanner.
 
 ## Tech Stack
 
 - **Frontend**: React 18 + Vite + Tailwind CSS
-- **Backend**: Express.js (Gemini API proxy)
+- **Backend**: Express.js (Gemini API proxy + OCR)
 - **Database**: Supabase (PostgreSQL + Auth)
 - **Deployment**: Render.com
+- **PWA**: manifest.json + Service Worker
 
 ## Ports (range 3050-3054)
 
@@ -22,105 +23,116 @@ Galactische Vrienden is een educatieve leesapp voor kinderen in groep 3-5. De ap
 
 ```
 galactische-vrienden/
-├── frontend/           # React app
+├── frontend/
+│   ├── public/
+│   │   ├── manifest.json      # PWA manifest
+│   │   ├── sw.js              # Service worker
+│   │   └── icons/             # PWA icons (te genereren)
 │   ├── src/
-│   │   ├── components/ # UI componenten
-│   │   ├── hooks/      # React hooks (auth, progress, settings)
-│   │   ├── data/       # Game content (levels, woorden, verhalen)
-│   │   └── App.jsx     # Main routing
+│   │   ├── components/
+│   │   │   ├── Auth/
+│   │   │   │   ├── Login.jsx
+│   │   │   │   └── ProfileSetup.jsx     # 7 stappen incl. huisdier/held
+│   │   │   ├── Dashboard/
+│   │   │   │   └── Dashboard.jsx
+│   │   │   ├── Parent/                   # Ouder sectie
+│   │   │   │   ├── ParentalGate.jsx     # Rekensom beveiliging
+│   │   │   │   ├── ParentDashboard.jsx  # Hoofd dashboard
+│   │   │   │   ├── WeekWordsInput.jsx   # Weekwoorden invoer
+│   │   │   │   ├── ProgressCharts.jsx   # Statistieken
+│   │   │   │   ├── BookScanner.jsx      # OCR scanner
+│   │   │   │   └── index.js
+│   │   │   ├── Games/
+│   │   │   │   ├── CodeKraken/
+│   │   │   │   ├── Troll/
+│   │   │   │   ├── Jumper/
+│   │   │   │   └── Stories/
+│   │   │   └── Shop/
+│   │   ├── hooks/
+│   │   │   ├── useAuth.jsx
+│   │   │   ├── useProgress.js
+│   │   │   ├── useSettings.js
+│   │   │   └── useUser.js               # Personalisatie data
+│   │   ├── data/
+│   │   │   ├── words/                   # JSON woorden database
+│   │   │   │   ├── index.js             # Loaders
+│   │   │   │   ├── avi-start.json       # ~170 woorden
+│   │   │   │   ├── avi-m3.json          # ~215 woorden
+│   │   │   │   ├── avi-e3.json          # ~200 woorden
+│   │   │   │   ├── avi-m4.json          # ~200 woorden
+│   │   │   │   ├── avi-e4.json          # ~220 woorden
+│   │   │   │   └── avi-m5-e5.json       # ~470 woorden
+│   │   │   ├── stories/
+│   │   │   └── shopItems.js
+│   │   ├── services/
+│   │   │   ├── wordSelector.js          # Slim woord algoritme
+│   │   │   └── spacedRepetition.js      # Spaced repetition
+│   │   ├── utils/
+│   │   │   ├── textPersonalizer.js      # {naam}, {huisdier} vervanging
+│   │   │   └── storageSync.js           # localStorage fallback
+│   │   ├── App.jsx
+│   │   ├── main.jsx                     # SW registratie
+│   │   └── index.css
 │   └── package.json
-├── backend/            # Express API
-│   ├── server.js       # Gemini proxy
+├── backend/
+│   ├── server.js                        # API (verhalen + OCR)
 │   └── package.json
-├── supabase_schema.sql # Database setup
-└── render.yaml         # Deploy config
+├── supabase_schema.sql
+└── render.yaml
 ```
+
+## Belangrijke Regels voor Claude
+
+- **NOOIT een lokale port killen zonder expliciete toestemming van de gebruiker**
 
 ## Belangrijke Conventies
 
 ### Code Style
-- Gebruik functionele React componenten met hooks
+- Functionele React componenten met hooks
 - Nederlandse comments en UI tekst
 - Tailwind voor styling (geen aparte CSS bestanden)
-- Emoji's voor visuele feedback in games
 
 ### Naamgeving
-- Components: PascalCase (bijv. `GameMenu.jsx`)
-- Hooks: camelCase met `use` prefix (bijv. `useProgress.js`)
-- Data files: camelCase (bijv. `codeKrakenLevels.js`)
+- Components: PascalCase (`GameMenu.jsx`)
+- Hooks: camelCase met `use` prefix (`useProgress.js`)
+- Data files: camelCase (`codeKrakenLevels.js`)
 
 ### State Management
 - `useAuth` - authenticatie en profiel
 - `useProgress` - sterren, levels, items
 - `useSettings` - thema en accessibility
+- `useUser` - personalisatie (huisdier, held, kleur)
 
 ### Game Componenten Structuur
-Elk game component volgt dit patroon:
 1. `showIntro` state voor uitleg scherm
 2. `completed` state voor eindscherm
-3. `onBack` prop om terug te gaan naar dashboard
-4. `speak(text)` functie voor spraaksynthese
+3. `onBack` prop om terug te gaan
+4. `speak(text)` voor spraaksynthese
 5. `addStars(amount)` voor beloningen
 
-## Huidige Taken
+## Huidige Status
 
-### ✅ Voltooid
-- [x] Project structuur en configuratie
-- [x] Supabase schema (auth, profiles, progress)
-- [x] useAuth hook met Magic Link
-- [x] useProgress hook (sterren, levels, items)
-- [x] useSettings hook (thema, font, spacing)
-- [x] Login en ProfileSetup componenten
-- [x] Dashboard met game selectie
-- [x] Header met sterren display
-- [x] Code Kraken (13 levels lettergreep puzzels)
-- [x] Brutelaars/TrollGame (15 woorden klemtoon)
-- [x] Lettergreep Springer/JumpGame (8 verhalen)
-- [x] Verhalen Lezer/StoryMenu (7 verhalen + ReadingRuler)
-- [x] StoryMaker (AI verhaal generatie)
-- [x] RewardShop (19 items Bio-Koepel)
-- [x] SettingsView
+### Voltooid
+- [x] Basis app structuur
+- [x] Supabase auth + database
+- [x] Alle hooks (auth, progress, settings, user)
+- [x] Login + ProfileSetup (7 stappen)
+- [x] Dashboard + Header
+- [x] Code Kraken (lettergreep puzzels)
+- [x] TrollGame (klemtoon)
+- [x] JumpGame (lettergreep springer)
+- [x] StoryMenu + StoryMaker
+- [x] RewardShop (Bio-Koepel)
+- [x] Ouder Dashboard (ParentalGate, WeekWordsInput, ProgressCharts)
+- [x] BookScanner (OCR met Gemini Vision)
+- [x] Woorden database (~1475 woorden in JSON)
+- [x] Personalisatie systeem (textPersonalizer)
+- [x] PWA manifest + Service Worker
 
-### 🔧 Nog Te Doen
-
-#### Hoge Prioriteit
-1. **Generated Story Reader** - View voor AI-gegenereerde verhalen
-   - Route: `currentView === 'generated-reader'`
-   - Moet `generatedStory` state uit App.jsx gebruiken
-   - Zelfde ReadingRuler als StoryMenu
-
-2. **App.jsx isStoryUnlocked verwijderen** - Regel 111 bevat ongebruikte prop
-   - Verwijder `isStoryUnlocked={(id) => isLevelUnlocked('stories', id)}`
-
-3. **Backend CORS update** - Voeg productie URL toe
-   - `backend/server.js` regel 10: voeg Render URL toe aan CORS origin
-
-#### Medium Prioriteit
-4. **Offline fallback** - localStorage backup voor progress
-   - In useProgress.js: sync met localStorage als Supabase faalt
-
-5. **Loading states** - Skeleton loaders voor games
-   - Voorkom flash of content bij laden levels
-
-6. **Error boundaries** - Catch errors in game componenten
-   - Voorkom crashes, toon friendly error message
-
-#### Lage Prioriteit
-7. **Animaties verfijnen** - Smoother transitions
-   - TrollGame: vibrate animatie CSS toevoegen
-   - JumpGame: water ripple effect
-
-8. **Sounds** - Optionele geluidseffecten
-   - Correct/incorrect feedback
-   - Level complete jingle
-
-9. **PWA Support** - Installeerbaar maken
-   - manifest.json
-   - Service worker voor offline
-
-10. **Analytics** - Optioneel: progress tracking
-    - Welke levels moeilijk zijn
-    - Waar kinderen afhaken
+### Nog Te Doen
+- [ ] PWA icons genereren (192x192, 512x512)
+- [ ] Spaced repetition integreren in games
+- [ ] localStorage sync in useProgress
 
 ## Commando's
 
@@ -138,9 +150,6 @@ cd backend && npm install && npm run dev
 cd frontend && npm run build
 ```
 
-### Database Reset
-Voer `supabase_schema.sql` opnieuw uit in Supabase SQL Editor.
-
 ## Environment Variables
 
 ### Frontend (.env)
@@ -157,71 +166,71 @@ FRONTEND_URL=http://localhost:3051
 PORT=3050
 ```
 
-## Testing Checklist
-
-Voor elke game, test:
-- [ ] Intro scherm toont correct
-- [ ] Spraaksynthese werkt (NL stem)
-- [ ] Sterren worden toegevoegd
-- [ ] Progress wordt opgeslagen
-- [ ] Terug knop werkt
-- [ ] Level unlock logica klopt
-
-## Bekende Issues
-
-1. **TrollGame vibrate class** - CSS animatie `animate-vibrate` bestaat niet in Tailwind config
-2. **Speech synthesis** - Sommige browsers hebben geen NL stem, fallback naar EN
-
 ## API Endpoints
 
-### Backend
-- `GET /health` - Health check
-- `POST /api/generate-story` - Genereer verhaal met Gemini
-  - Body: `{ hero, place, item, gradeLevel }`
-  - Response: `{ title, content[], fact }`
+| Endpoint | Methode | Beschrijving |
+|----------|---------|--------------|
+| `/health` | GET | Health check |
+| `/api/generate-story` | POST | AI verhaal genereren |
+| `/api/ocr-scan` | POST | Boek scanner OCR |
 
 ## Database Tabellen
 
 | Tabel | Doel |
 |-------|------|
-| profiles | Gebruikersprofiel (naam, leeftijd, groep, sterren, **interests[]**) |
+| profiles | Profiel + personalisatie (pet_info, idol, favorite_color) |
 | user_items | Gekochte winkel items |
 | completed_levels | Voltooide game levels |
 | user_settings | Thema en accessibility |
+| week_words | Weekwoorden van ouders/scanner |
+| word_attempts | Spaced repetition tracking |
 
-Alle tabellen hebben RLS policies - gebruikers zien alleen eigen data.
+## Woorden Database
 
-## School Content Integratie
+~1475 woorden verdeeld over AVI niveaus:
+- **avi-start.json**: 170 woorden (1-2 lettergrepen)
+- **avi-m3.json**: 215 woorden (2 lettergrepen)
+- **avi-e3.json**: 200 woorden (2 lettergrepen)
+- **avi-m4.json**: 200 woorden (2-3 lettergrepen)
+- **avi-e4.json**: 220 woorden (3 lettergrepen)
+- **avi-m5-e5.json**: 470 woorden (4-5 lettergrepen)
 
-### Folder Structuur
+Elke entry bevat:
+```json
+{
+  "word": "voetbal",
+  "syllables": ["voet", "bal"],
+  "syllableCount": 2,
+  "stressIndex": 0,
+  "image": "emoji",
+  "category": "sport"
+}
 ```
-school-content/
-├── spelling/     # Spellingwoorden per week
-├── grammar/      # Grammatica onderwerpen
-└── math/         # Rekenen (voor later)
+
+## Personalisatie
+
+De app ondersteunt placeholders in teksten:
+- `{naam}` / `{kind}` - Naam van het kind
+- `{huisdier}` / `{huisdiernaam}` - Huisdier naam
+- `{huisdiertype}` - Type huisdier
+- `{held}` / `{idool}` - Favoriete held
+- `{kleur}` - Favoriete kleur
+
+Gebruik `textPersonalizer.js`:
+```javascript
+import { personalize, createPlaceholders } from './utils/textPersonalizer'
+const text = personalize("Hoi {naam}!", createPlaceholders(profile))
 ```
 
-### Workflow voor Gepersonaliseerde Levels
+## PWA
 
-Wanneer gevraagd om levels te genereren van schoolmateriaal:
+De app is installeerbaar als PWA:
+- `manifest.json` in public/
+- Service worker registratie in main.jsx
+- Offline caching via sw.js
 
-1. **Lees school-content/** - Check spelling/, grammar/, math/ folders
-2. **Analyseer inhoud** - Extraheer woorden, thema's, onderwerpen
-3. **Haal kind profiel op** - Lees `interests` array uit Supabase profiel
-4. **Genereer thematische levels** - Combineer schoolwoorden met interesses
-5. **Review output** - Sla op in *-CONTENT.md bestanden
-
-### Kind Interesses (opgeslagen in profiles.interests)
-- dinosaurussen, ruimte, dieren, voetbal, autos
-- prinsessen, superhelden, natuur, robots, piraten
-
-### Voorbeeld Prompts
-- "Genereer levels van de spellingwoorden deze week"
-- "Maak Code Kraken levels van school-content/spelling/week-12.txt"
-- "Combineer de grammatica met [kind]'s interesses"
-
-### Slash Command
-Gebruik `/generate-school-levels` om automatisch schoolmateriaal te analyseren en gepersonaliseerde levels te maken.
+Icons nodig (te genereren):
+- 72x72, 96x96, 128x128, 144x144, 152x152, 192x192, 384x384, 512x512
 
 ## Contact
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 
 export const Login = () => {
@@ -6,6 +6,45 @@ export const Login = () => {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState(null)
   const { signInWithMagicLink, signInDemo } = useAuth()
+
+  // Check voor geheime start parameter in URL: ?start=ruimte
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('start') === 'ruimte') {
+      // Verwijder parameter uit URL (zodat refresh niet opnieuw triggert)
+      window.history.replaceState({}, '', window.location.pathname)
+      signInDemo()
+    }
+  }, [signInDemo])
+
+  // Geheime demo mode activatie: 7x op logo klikken + rekensom
+  const [logoClicks, setLogoClicks] = useState(0)
+  const [showDemoGate, setShowDemoGate] = useState(false)
+  const [demoAnswer, setDemoAnswer] = useState('')
+  const [demoNumbers] = useState(() => {
+    const a = Math.floor(Math.random() * 20) + 10
+    const b = Math.floor(Math.random() * 20) + 10
+    return { a, b, answer: a + b }
+  })
+
+  const handleLogoClick = () => {
+    const newClicks = logoClicks + 1
+    setLogoClicks(newClicks)
+    if (newClicks >= 7) {
+      setShowDemoGate(true)
+    }
+  }
+
+  const handleDemoSubmit = (e) => {
+    e.preventDefault()
+    if (parseInt(demoAnswer) === demoNumbers.answer) {
+      signInDemo()
+    } else {
+      setDemoAnswer('')
+      setShowDemoGate(false)
+      setLogoClicks(0)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -31,7 +70,13 @@ export const Login = () => {
     <div className="min-h-screen bg-gradient-to-b from-indigo-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
       <div className="bg-white/95 backdrop-blur rounded-[3rem] p-8 md:p-12 max-w-md w-full shadow-2xl">
         <div className="text-center mb-8">
-          <div className="text-7xl mb-4 animate-bounce">🚀</div>
+          <button
+            onClick={handleLogoClick}
+            className="text-7xl mb-4 animate-bounce focus:outline-none cursor-default select-none"
+            tabIndex={-1}
+          >
+            🚀
+          </button>
           <h1 className="text-3xl font-bold text-indigo-900 mb-2">
             Galactische Vrienden
           </h1>
@@ -90,17 +135,51 @@ export const Login = () => {
             Geen wachtwoord nodig! 🎉
           </p>
         </div>
-
-        {/* Demo mode voor development */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <button
-            onClick={signInDemo}
-            className="w-full py-3 rounded-xl text-sm font-bold bg-gray-100 hover:bg-gray-200 text-gray-600 transition"
-          >
-            🧪 Demo Mode (zonder login)
-          </button>
-        </div>
       </div>
+
+      {/* Geheime demo gate - alleen na 7x logo klikken */}
+      {showDemoGate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-center mb-4 text-gray-800">
+              🔐 Geheime Toegang
+            </h3>
+            <p className="text-center text-gray-600 mb-4">
+              Los de som op om demo mode te activeren:
+            </p>
+            <form onSubmit={handleDemoSubmit} className="space-y-4">
+              <div className="text-center">
+                <span className="text-2xl font-bold text-indigo-600">
+                  {demoNumbers.a} + {demoNumbers.b} = ?
+                </span>
+              </div>
+              <input
+                type="number"
+                value={demoAnswer}
+                onChange={(e) => setDemoAnswer(e.target.value)}
+                className="w-full text-center text-2xl p-3 rounded-xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none"
+                placeholder="?"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowDemoGate(false); setLogoClicks(0) }}
+                  className="flex-1 py-2 rounded-xl bg-gray-200 text-gray-700 font-bold"
+                >
+                  Annuleren
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 rounded-xl bg-indigo-500 text-white font-bold"
+                >
+                  Check
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -126,7 +126,7 @@ const SteppingStone = ({ syllable, index, isActive, isCompleted, isCurrent, isPr
 // Story selector component
 const StorySelector = ({ stories, completedStories, onSelect, onBack }) => {
   const isUnlocked = (storyId) => {
-    if (storyId === 0) return true
+    if (storyId === 0) return true  // Eerste verhaal altijd open
     return completedStories.includes(storyId - 1)
   }
 
@@ -185,14 +185,183 @@ const StorySelector = ({ stories, completedStories, onSelect, onBack }) => {
   )
 }
 
-export const JumpGame = ({ onBack, speak, addStars }) => {
+// Woorden die al goed klinken in TTS (bestaande Nederlandse woorden)
+const GOOD_WORDS = [
+  'de', 'te', 'me', 'ze', 'we', 'je', 'he',  // functiewoorden
+  'ra', 'la', 'do', 're', 'mi', 'fa', 'so',  // muzieknoten
+  'ja', 'na', 'nu', 'zo', 'al',              // bestaande woorden
+  'op', 'om', 'in', 'en', 'of', 'is', 'er',  // korte woorden
+  'het', 'die', 'dat', 'wat', 'wie',         // lidwoorden etc (niet "een"!)
+  'blad', 'heel', 'naar', 'door', 'zijn',    // werkende woorden
+]
+
+// Voorvoegsels die hele-woord aanpak nodig hebben (spreken + stoppen)
+const PREFIX_SYLLABLES = ['be', 'ge', 've']
+
+// Lettergrepen die Engels klinken → fonetische fix
+// TTS spreekt deze als Nederlandse klanken
+const PHONETIC_FIXES = {
+  // Open lettergrepen eindigend op 'e' (klinken als Engelse "ee" of "eh")
+  'le': 'leu',      // le-lie-blad → "leu" niet "lee/leh"
+  'me': 'meu',      // me-ter
+  'ke': 'keu',      // fon-ke-len
+  'ne': 'neu',      //
+  'te': 'teu',      // ruim-te (maar "te" als los woord is goed)
+  'de': 'deu',      // bla-de-ren (maar "de" als los woord is goed)
+  're': 'reu',      // reu-zen
+  'vre': 'vreu',    // te-vre-den
+
+  // "ie" klinkt als Engels "lie"
+  'lie': 'lie.',    // punt voorkomt Engels
+  'vie': 'vie.',
+  'bie': 'bie.',
+
+  // "een" als lettergreep (niet als lidwoord) klinkt Engels
+  'een': 'eun',     // vlie-gen-de → maar lidwoord "een" moet apart
+
+  // Andere Engels-klinkende
+  'flad': 'flad.',
+  'dert': 'durt',
+  'gels': 'guls',
+  'bui': 'bui.',
+  'delt': 'dult',
+  'sche': 'schu',
+}
+
+// Lettergrepen die stomme e krijgen als ze GEEN klemtoon hebben
+// UITGESCHAKELD - Nederlandse TTS zou dit correct moeten uitspreken
+// Alleen voorvoegsels be-/ge- hebben speciale behandeling (via PREFIX_SYLLABLES)
+const SCHWA_REPLACEMENTS = {
+  // Voorlopig leeg - laat TTS de originele lettergrepen uitspreken
+}
+
+// Lettergrepen die "h" nodig hebben (worden als afkorting gelezen)
+const PROBLEM_SYLLABLES = [
+  'mo', 'ko', 'bo', 'lo', 'to', 'ro', 'vo', 'po',  // eindigen op o
+  'ka', 'ba', 'pa', 'ta', 'ma', 'sa', 'va',         // eindigen op a
+  'pla', 'a',                                        // afkortings-gevoelig
+]
+
+// Haal woord context op voor een lettergreep, inclusief klemtoon
+const getWordContext = (sentence, syllableIndex) => {
+  const syllable = sentence.syllables[syllableIndex]
+  if (!syllable) return null
+
+  const words = sentence.text.split(' ')
+  let syllableCounter = 0
+
+  for (let wordIdx = 0; wordIdx < words.length; wordIdx++) {
+    const wordWithDashes = words[wordIdx]
+    const wordParts = wordWithDashes.split('-').filter(Boolean)
+
+    for (let sylIdx = 0; sylIdx < wordParts.length; sylIdx++) {
+      if (syllableCounter === syllableIndex) {
+        // Bepaal klemtoon: meestal op eerste lettergreep, BEHALVE bij be-, ge-, ver-
+        const firstPart = wordParts[0]?.toLowerCase()
+        const hasPrefix = PREFIX_SYLLABLES.includes(firstPart)
+
+        // Als woord begint met voorvoegsel, ligt klemtoon op 2e lettergreep
+        // Anders op de eerste
+        const stressPosition = hasPrefix && wordParts.length > 1 ? 1 : 0
+        const hasStress = sylIdx === stressPosition
+
+        return {
+          syllable,
+          wordParts,
+          syllablePosition: sylIdx,
+          totalSyllables: wordParts.length,
+          hasStress,
+          stressPosition
+        }
+      }
+      syllableCounter++
+    }
+  }
+  return null
+}
+
+// Bouw fonetische versie van woord: be-gint -> buh gint, lo-pen -> loh pen
+const buildPhoneticWord = (wordParts, targetSyllableIndex = 0) => {
+  return wordParts.map((part, i) => {
+    const s = part.toLowerCase()
+    // Target lettergreep: voorvoegsel krijgt "uh", probleemlettergrepen krijgen "h"
+    if (i === targetSyllableIndex) {
+      if (PREFIX_SYLLABLES.includes(s)) return s.slice(0, -1) + 'uh' // be -> buh
+      if (PROBLEM_SYLLABLES.includes(s)) return part + 'h' // mo -> moh, lo -> loh
+    }
+    return part
+  }).join(' ')
+}
+
+// Helper om lettergreep spraak-klaar te maken
+// hasStress = true betekent dat deze lettergreep de klemtoon heeft
+const getSpeakableSyllable = (syllable, hasStress = true) => {
+  if (!syllable) return syllable
+
+  const s = syllable.toLowerCase().trim()
+
+  // Als het een bekend goed woord is, niet aanpassen
+  if (GOOD_WORDS.includes(s)) {
+    return syllable
+  }
+
+  // Als GEEN klemtoon: check of het een schwa-vervanging nodig heeft
+  // gen → gun, men → mun, be → buh, etc.
+  if (!hasStress && SCHWA_REPLACEMENTS[s]) {
+    return SCHWA_REPLACEMENTS[s]
+  }
+
+  // Check fonetische fixes (Engels-klinkende lettergrepen)
+  if (PHONETIC_FIXES[s]) {
+    return PHONETIC_FIXES[s]
+  }
+
+  // Als het een bekend probleemwoord is (afkorting-bug), voeg "h" toe
+  if (PROBLEM_SYLLABLES.includes(s)) {
+    return syllable + 'h'
+  }
+
+  return syllable
+}
+
+// localStorage keys
+const MARKS_STORAGE_KEY = 'tts-syllable-marks'
+const TIMINGS_STORAGE_KEY = 'tts-syllable-timings'
+
+// Default timings per lettergreep-type (ms)
+const DEFAULT_TIMINGS = {
+  'be': 500, 'ge': 500, 've': 500,  // prefixes
+  'mo': 600, 'ko': 600, 'bo': 600, 'lo': 600, 'to': 600, 'ro': 600, 'vo': 600, 'po': 600,  // -o
+  'ka': 600, 'ba': 600, 'pa': 600, 'ta': 600, 'ma': 600, 'sa': 600, 'va': 600,  // -a
+  'pla': 600, 'a': 600,  // andere
+}
+
+export const JumpGame = ({ onBack, speak, addStars, completeLevel }) => {
   const [showIntro, setShowIntro] = useState(true)
   const [selectedStory, setSelectedStory] = useState(null)
+
+  // Auto-play mode
+  const [autoPlay, setAutoPlay] = useState(false)
+  const [autoPlaySpeed, setAutoPlaySpeed] = useState(1200)
+  const [syllableTimings, setSyllableTimings] = useState(() => {
+    const saved = localStorage.getItem(TIMINGS_STORAGE_KEY)
+    return saved ? { ...DEFAULT_TIMINGS, ...JSON.parse(saved) } : { ...DEFAULT_TIMINGS }
+  })
+  const syllableTimingsRef = useRef(syllableTimings)
+  const [syllableMarks, setSyllableMarks] = useState(() => {
+    const saved = localStorage.getItem(MARKS_STORAGE_KEY)
+    return saved ? JSON.parse(saved) : {}
+  })
+  // Ref voor directe toegang tot marks (omzeilt async state)
+  const syllableMarksRef = useRef(syllableMarks)
+
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0)
-  const [currentSyllableIndex, setCurrentSyllableIndex] = useState(0)
+  const [currentSyllableIndex, setCurrentSyllableIndex] = useState(-1) // -1 = op de grond, nog niet gesprongen
   const [completedStories, setCompletedStories] = useState([])
   const [isJumping, setIsJumping] = useState(false)
+  const [isTesting, setIsTesting] = useState(false) // Test-sprong animatie
   const [storyCompleted, setStoryCompleted] = useState(false)
+  const [sentenceCompleted, setSentenceCompleted] = useState(false) // Wacht op handmatige "volgende zin"
   const [worldOffset, setWorldOffset] = useState(0)
   const containerRef = useRef(null)
 
@@ -201,7 +370,10 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
     const sentence = selectedStory?.sentences[currentSentenceIndex]
     if (!sentence) return 0
 
-    let offset = 40 // paddingLeft
+    // Startplatform (index -1) is aan het begin
+    if (targetIndex < 0) return 70 // Centreer op startblok
+
+    let offset = 40 + 60 + 24 // paddingLeft + startblok breedte + margin
     const words = sentence.text.split(' ')
     let syllableCounter = 0
 
@@ -214,6 +386,8 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
         }
         if (syllableCounter > 0) {
           offset += sylIdx === 0 ? 48 : 4
+        } else {
+          offset += 24 // eerste blok margin
         }
         offset += 80
         syllableCounter++
@@ -234,18 +408,8 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
     }
   }, [currentSyllableIndex, currentSentenceIndex, selectedStory, isJumping])
 
-  // Spreek huidige lettergreep uit bij verandering
-  useEffect(() => {
-    if (selectedStory && !showIntro && !storyCompleted && !isJumping) {
-      const sentence = selectedStory.sentences[currentSentenceIndex]
-      if (sentence && sentence.syllables[currentSyllableIndex]) {
-        const timer = setTimeout(() => {
-          speak(sentence.syllables[currentSyllableIndex])
-        }, 150)
-        return () => clearTimeout(timer)
-      }
-    }
-  }, [currentSyllableIndex, currentSentenceIndex, selectedStory, showIntro, storyCompleted, isJumping])
+  // GEEN automatische speech meer bij start - alles gebeurt via handleSyllableClick
+  // De kikker start op de grond (index -1) en speech komt pas bij de sprong
 
   // Helper: spreek tekst uit en wacht tot klaar
   const speakAndWait = (text) => {
@@ -307,45 +471,212 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
     // Start spring animatie
     setIsJumping(true)
 
+    // GEEN speech meer bij individuele lettergrepen
+    // Alleen visueel leren, hele zinnen kunnen nog wel voorgelezen worden
+
     // Wacht tot animatie klaar is (0.6s zoals in CSS)
     setTimeout(async () => {
       setIsJumping(false)
       setCurrentSyllableIndex(nextIndex)
 
-      // BELANGRIJK: Wacht tot de lettergreep is uitgesproken voordat we verder gaan
-      // De useEffect spreekt de syllable uit, dus wacht daar even op
-      await new Promise(resolve => setTimeout(resolve, 100))
-
       // Check of dit de LAATSTE lettergreep was
       if (nextIndex === sentence.syllables.length - 1) {
-        // Wacht tot speech klaar is (lettergreep wordt uitgesproken door useEffect)
+        // Wacht even zodat kind de laatste lettergreep goed hoort
         await new Promise(resolve => setTimeout(resolve, 800))
 
-        // Nu pas naar volgende zin of einde
-        if (currentSentenceIndex < selectedStory.sentences.length - 1) {
-          await speakAndWait("Goed zo! Volgende zin.")
-          setCurrentSentenceIndex(prev => prev + 1)
-          setCurrentSyllableIndex(0)
-          setWorldOffset(0)
-        } else {
-          handleStoryComplete()
-        }
+        // Markeer zin als voltooid - NIET automatisch door naar volgende
+        setSentenceCompleted(true)
+        setAutoPlay(false) // Stop auto-play zodat user kan markeren
       }
     }, 600)
   }
 
+  // Handmatig naar volgende zin (of einde verhaal)
+  const goToNextSentence = () => {
+    const sentence = selectedStory.sentences[currentSentenceIndex]
+
+    // Auto-fill alle niet-gemarkeerde lettergrepen als goed
+    autoFillMarks(selectedStory.id, currentSentenceIndex, sentence.syllables.length)
+
+    // Reset sentence state
+    setSentenceCompleted(false)
+
+    // Check of dit het laatste was
+    if (currentSentenceIndex < selectedStory.sentences.length - 1) {
+      setCurrentSentenceIndex(prev => prev + 1)
+      setCurrentSyllableIndex(-1) // Start op de grond
+      setWorldOffset(0)
+    } else {
+      handleStoryComplete()
+    }
+  }
+
   const handleStoryComplete = () => {
     setStoryCompleted(true)
+    setAutoPlay(false) // Stop auto-play bij einde verhaal
+    setSentenceCompleted(false)
     setCompletedStories(prev => [...prev, selectedStory.id])
-    addStars(JUMPER_STARS_PER_STORY)
+
+    // Gebruik completeLevel voor persistent opslaan
+    if (completeLevel) {
+      // completeLevel handled sterren intern
+      completeLevel('jumper', selectedStory.id, JUMPER_STARS_PER_STORY)
+    } else {
+      // Fallback als completeLevel niet beschikbaar is
+      addStars(JUMPER_STARS_PER_STORY)
+    }
+
     speak("Fantastisch! Je hebt het verhaal uit!")
+  }
+
+  // Keyboard controls: Spatie = pauze, Enter = volgende (wanneer gepauzeerd)
+  useEffect(() => {
+    if (!selectedStory || storyCompleted) return
+
+    const handleKeyDown = (e) => {
+      // Spatie = toggle pauze (alleen als zin niet af is)
+      if (e.code === 'Space' && !sentenceCompleted) {
+        e.preventDefault()
+        setAutoPlay(prev => !prev)
+      }
+      // Enter = volgende stap of volgende zin
+      if (e.code === 'Enter' && !isJumping) {
+        e.preventDefault()
+        // Als zin af is → naar volgende zin
+        if (sentenceCompleted) {
+          goToNextSentence()
+        }
+        // Anders → volgende lettergreep (alleen als NIET auto-play)
+        else if (!autoPlay) {
+          const sentence = selectedStory.sentences[currentSentenceIndex]
+          const nextIndex = currentSyllableIndex + 1
+          if (nextIndex <= sentence.syllables.length - 1) {
+            handleSyllableClick(nextIndex)
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedStory, storyCompleted, autoPlay, isJumping, currentSentenceIndex, currentSyllableIndex, sentenceCompleted])
+
+  // Auto-play: automatisch door naar volgende lettergreep
+  useEffect(() => {
+    if (!autoPlay || isJumping || !selectedStory || storyCompleted || sentenceCompleted) return
+
+    const sentence = selectedStory.sentences[currentSentenceIndex]
+    const nextIndex = currentSyllableIndex + 1
+
+    // Stop als er geen volgende lettergreep is
+    if (nextIndex > sentence.syllables.length - 1) return
+
+    // Automatisch de volgende lettergreep spelen
+    const timer = setTimeout(() => {
+      handleSyllableClick(nextIndex)
+    }, autoPlaySpeed)
+
+    return () => clearTimeout(timer)
+  }, [autoPlay, currentSyllableIndex, isJumping, selectedStory, currentSentenceIndex, storyCompleted, sentenceCompleted, autoPlaySpeed])
+
+  // Syllable timing functies
+  const getSyllableTiming = (syllable) => {
+    const s = syllable.toLowerCase()
+    return syllableTimingsRef.current[s] || null // null = geen timing cutoff nodig
+  }
+
+  const adjustSyllableTiming = (syllable, delta, sentence = null, syllableIdx = null) => {
+    const s = syllable.toLowerCase()
+    const current = syllableTimingsRef.current[s] || 600
+    const newTiming = Math.max(300, Math.min(1200, current + delta))
+    const newTimings = { ...syllableTimingsRef.current, [s]: newTiming }
+    syllableTimingsRef.current = newTimings
+    setSyllableTimings(newTimings)
+    // Sla alleen afwijkingen van defaults op
+    const customTimings = {}
+    Object.entries(newTimings).forEach(([k, v]) => {
+      if (DEFAULT_TIMINGS[k] !== v) customTimings[k] = v
+    })
+    localStorage.setItem(TIMINGS_STORAGE_KEY, JSON.stringify(customTimings))
+
+    // Test de nieuwe timing na 1 seconde
+    if (sentence && syllableIdx !== null) {
+      setTimeout(() => {
+        testSyllableTiming(sentence, syllableIdx, newTiming)
+      }, 500)
+    }
+    return newTiming
+  }
+
+  // Test functie - alleen visuele sprong, geen speech meer
+  const testSyllableTiming = (sentence, syllableIdx, timing) => {
+    // Niet meer nodig zonder syllable speech
+  }
+
+  // Syllable marking functies
+  const getMarkKey = (storyId, sentenceIdx, syllableIdx) => {
+    return `${storyId}-${sentenceIdx}-${syllableIdx}`
+  }
+
+  const markSyllable = (storyId, sentenceIdx, syllableIdx, isGood) => {
+    const key = getMarkKey(storyId, sentenceIdx, syllableIdx)
+    const newMarks = { ...syllableMarksRef.current, [key]: isGood }
+    // Update ref direct (sync) zodat autoFill de juiste waarden ziet
+    syllableMarksRef.current = newMarks
+    setSyllableMarks(newMarks)
+    localStorage.setItem(MARKS_STORAGE_KEY, JSON.stringify(newMarks))
+  }
+
+  const getSyllableMark = (storyId, sentenceIdx, syllableIdx) => {
+    const key = getMarkKey(storyId, sentenceIdx, syllableIdx)
+    return syllableMarksRef.current[key] // undefined, true, or false
+  }
+
+  // Auto-fill: markeer alle niet-gemarkeerde lettergrepen als goed
+  // Gebruikt ref voor directe toegang tot laatste marks
+  const autoFillMarks = (storyId, sentenceIdx, syllableCount) => {
+    const newMarks = { ...syllableMarksRef.current }
+    for (let i = 0; i < syllableCount; i++) {
+      const key = getMarkKey(storyId, sentenceIdx, i)
+      if (newMarks[key] === undefined) {
+        newMarks[key] = 'good' // auto-fill als goed
+      }
+    }
+    syllableMarksRef.current = newMarks
+    setSyllableMarks(newMarks)
+    localStorage.setItem(MARKS_STORAGE_KEY, JSON.stringify(newMarks))
+  }
+
+  const exportMarks = () => {
+    const markLabels = {
+      'english': '🇬🇧 Engels',
+      'short': '⏱️ Te kort',
+      'abbrev': '✗ Afkorting'
+    }
+    const badMarks = Object.entries(syllableMarksRef.current)
+      .filter(([_, mark]) => mark !== 'good' && mark !== true) // exclude good marks
+      .map(([key, mark]) => {
+        const [storyId, sentIdx, sylIdx] = key.split('-').map(Number)
+        const story = jumperStories[storyId]
+        const sentence = story?.sentences[sentIdx]
+        const syllable = sentence?.syllables[sylIdx]
+        const label = markLabels[mark] || mark
+        return `${label} | ${story?.title} | Zin ${sentIdx + 1} | "${syllable}"`
+      })
+
+    // Groepeer per type
+    const grouped = badMarks.sort().join('\n')
+    console.log('=== TTS PROBLEMEN ===\n' + grouped)
+    navigator.clipboard?.writeText(grouped)
+    alert(`${badMarks.length} problemen gekopieerd!`)
   }
 
   const resetGame = () => {
     setCurrentSentenceIndex(0)
-    setCurrentSyllableIndex(0)
+    setCurrentSyllableIndex(-1) // Start op de grond
     setWorldOffset(0)
     setStoryCompleted(false)
+    setSentenceCompleted(false)
     setIsJumping(false)
   }
 
@@ -455,13 +786,13 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
           >
             <ArrowLeft size={20} /> Stop
           </button>
-          {/* Vorige lettergreep knop */}
-          {currentSyllableIndex > 0 && !isJumping && (
+          {/* Vorige lettergreep knop - ook terug naar huis vanaf blok 0 */}
+          {currentSyllableIndex >= 0 && !isJumping && (
             <button
-              onClick={() => handleSyllableClick(currentSyllableIndex - 1)}
+              onClick={() => setCurrentSyllableIndex(currentSyllableIndex - 1)}
               className="ml-4 flex items-center gap-1 bg-lime-100 text-lime-700 px-3 py-1 rounded-lg font-bold hover:bg-lime-200 transition"
             >
-              ⬅️ Vorige
+              ⬅️ {currentSyllableIndex === 0 ? '🏠' : 'Vorige'}
             </button>
           )}
         </div>
@@ -474,6 +805,50 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
             <Info size={16} />
           </button>
         </div>
+      </div>
+
+      {/* Auto-play controls */}
+      <div className="w-full flex items-center justify-between gap-4 mb-4 bg-orange-50 p-3 rounded-xl">
+        <div className="flex items-center gap-3">
+          {sentenceCompleted ? (
+            <button
+              onClick={goToNextSentence}
+              className="px-4 py-2 rounded-lg font-bold transition bg-green-500 text-white hover:bg-green-600 animate-pulse"
+            >
+              ➡️ Volgende zin
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setAutoPlay(!autoPlay)}
+                className={`px-4 py-2 rounded-lg font-bold transition ${autoPlay ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}
+              >
+                {autoPlay ? '⏸ Pauze [spatie]' : '▶ Auto [spatie]'}
+              </button>
+              {!autoPlay && (
+                <span className="text-sm text-gray-500">Enter = volgende</span>
+              )}
+            </>
+          )}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">Snelheid:</span>
+            <input
+              type="range"
+              min="800"
+              max="2500"
+              step="100"
+              value={autoPlaySpeed}
+              onChange={(e) => setAutoPlaySpeed(Number(e.target.value))}
+              className="w-16"
+            />
+          </div>
+        </div>
+        <button
+          onClick={exportMarks}
+          className="text-sm text-orange-600 hover:text-orange-800 underline"
+        >
+          Export fouten
+        </button>
       </div>
 
       {/* Huidige zin */}
@@ -517,6 +892,23 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
         >
           {/* Blokken met kikker erop */}
           <div className="flex items-end h-full" style={{ paddingLeft: '40px' }}>
+            {/* Startplatform - kikker begint hier (index -1) */}
+            <div className="relative flex flex-col items-center" style={{ marginRight: '24px' }}>
+              {currentSyllableIndex === -1 && (
+                <div className={`mb-1 ${(isJumping || isTesting) ? 'animate-jump-vertical' : ''}`}>
+                  {(isJumping || isTesting) ? <FrogJump /> : <FrogSit />}
+                </div>
+              )}
+              {currentSyllableIndex !== -1 && (
+                <div className="mb-1" style={{ height: '80px' }} />
+              )}
+              {/* Startblok (grond) */}
+              <div className="min-w-[60px] px-3 py-3 rounded-xl bg-amber-600 text-amber-200 text-sm font-bold"
+                style={{ boxShadow: '0 4px 0 #92400e' }}>
+                🏠
+              </div>
+            </div>
+
             {(() => {
               // Gebruik text om woordgrenzen te bepalen
               const words = currentSentence.text.split(' ')
@@ -534,11 +926,11 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
 
                   // Eerste lettergreep van nieuw woord = grote gap
                   // Andere lettergrepen = kleine gap (dicht bij elkaar)
-                  const marginLeft = currentIdx === 0 ? 0 : (sylInWord === 0 ? 48 : 4)
+                  const marginLeft = currentIdx === 0 ? 24 : (sylInWord === 0 ? 48 : 4)
 
                   const isCurrentBlock = currentIdx === currentSyllableIndex
                   const isNextBlock = currentIdx === currentSyllableIndex + 1
-                  const isCompleted = currentIdx < currentSyllableIndex
+                  const isCompleted = currentIdx < currentSyllableIndex && currentSyllableIndex >= 0
 
                   elements.push(
                     <div
@@ -547,7 +939,7 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
                       style={{ marginLeft: `${marginLeft}px` }}
                     >
                       {/* Kikker staat BOVEN het huidige blok */}
-                      {isCurrentBlock && (
+                      {isCurrentBlock && currentSyllableIndex >= 0 && (
                         <div className="relative">
                           {/* Klikbare zone LINKS van kikker om achteruit te gaan */}
                           {currentSyllableIndex > 0 && !isJumping && (
@@ -559,14 +951,14 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
                               ⬅️
                             </button>
                           )}
-                          <div className={`mb-1 ${isJumping ? 'animate-jump-vertical' : ''}`}>
-                            {isJumping ? <FrogJump /> : <FrogSit />}
+                          <div className={`mb-1 ${(isJumping || isTesting) ? 'animate-jump-vertical' : ''}`}>
+                            {(isJumping || isTesting) ? <FrogJump /> : <FrogSit />}
                           </div>
                         </div>
                       )}
 
                       {/* Placeholder voor hoogte als kikker er niet staat */}
-                      {!isCurrentBlock && (
+                      {!(isCurrentBlock && currentSyllableIndex >= 0) && (
                         <div className="mb-1" style={{ height: '80px' }} />
                       )}
 
@@ -580,6 +972,45 @@ export const JumpGame = ({ onBack, speak, addStars }) => {
                         isPrevious={currentIdx === currentSyllableIndex - 1 && !isJumping}
                         onClick={() => handleSyllableClick(currentIdx)}
                       />
+
+                      {/* Mark buttons - zichtbaar voor bezochte EN huidige lettergrepen */}
+                      {(isCompleted || isCurrentBlock) && (
+                        <div className="flex gap-1 mt-1">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); markSyllable(selectedStory.id, currentSentenceIndex, currentIdx, 'good') }}
+                            className={`w-6 h-6 rounded text-xs transition ${
+                              getSyllableMark(selectedStory.id, currentSentenceIndex, currentIdx) === 'good'
+                                ? 'bg-green-500'
+                                : 'bg-gray-200 hover:bg-green-200'
+                            }`}
+                            title="Goed"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); markSyllable(selectedStory.id, currentSentenceIndex, currentIdx, 'english') }}
+                            className={`w-6 h-6 rounded text-xs transition ${
+                              getSyllableMark(selectedStory.id, currentSentenceIndex, currentIdx) === 'english'
+                                ? 'bg-blue-500'
+                                : 'bg-gray-200 hover:bg-blue-200'
+                            }`}
+                            title="Engels"
+                          >
+                            🇬🇧
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); markSyllable(selectedStory.id, currentSentenceIndex, currentIdx, 'abbrev') }}
+                            className={`w-6 h-6 rounded text-xs transition ${
+                              getSyllableMark(selectedStory.id, currentSentenceIndex, currentIdx) === 'abbrev'
+                                ? 'bg-red-500'
+                                : 'bg-gray-200 hover:bg-red-200'
+                            }`}
+                            title="Afkorting"
+                          >
+                            ✗
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )
                   syllableIdx++

@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="100%" style="stop-color:#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="rocket" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f8fafc"/>
+      <stop offset="100%" style="stop-color:#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="window" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#38bdf8"/>
+      <stop offset="100%" style="stop-color:#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24"/>
+      <stop offset="50%" style="stop-color:#f97316"/>
+      <stop offset="100%" style="stop-color:#ef4444"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Stars -->
+  <circle cx="80" cy="100" r="4" fill="#fff" opacity="0.8"/>
+  <circle cx="420" cy="80" r="3" fill="#fff" opacity="0.6"/>
+  <circle cx="450" cy="180" r="5" fill="#fff" opacity="0.7"/>
+  <circle cx="60" cy="280" r="3" fill="#fff" opacity="0.5"/>
+  <circle cx="100" cy="400" r="4" fill="#fff" opacity="0.6"/>
+  <circle cx="430" cy="350" r="3" fill="#fff" opacity="0.7"/>
+  <circle cx="380" cy="420" r="4" fill="#fff" opacity="0.5"/>
+
+  <!-- Rocket body -->
+  <path d="M256 80
+           C256 80 310 140 310 240
+           L310 320
+           L202 320
+           L202 240
+           C202 140 256 80 256 80Z"
+        fill="url(#rocket)"
+        stroke="#cbd5e1"
+        stroke-width="4"/>
+
+  <!-- Rocket nose cone -->
+  <path d="M256 80
+           C240 110 230 150 226 190
+           L286 190
+           C282 150 272 110 256 80Z"
+        fill="#f1f5f9"/>
+
+  <!-- Window -->
+  <circle cx="256" cy="220" r="35" fill="url(#window)" stroke="#0284c7" stroke-width="4"/>
+  <circle cx="245" cy="210" r="10" fill="#fff" opacity="0.5"/>
+
+  <!-- Left fin -->
+  <path d="M202 280
+           L140 360
+           L140 380
+           L202 320 Z"
+        fill="url(#rocket)"
+        stroke="#cbd5e1"
+        stroke-width="3"/>
+
+  <!-- Right fin -->
+  <path d="M310 280
+           L372 360
+           L372 380
+           L310 320 Z"
+        fill="url(#rocket)"
+        stroke="#cbd5e1"
+        stroke-width="3"/>
+
+  <!-- Rocket bottom -->
+  <rect x="210" y="310" width="92" height="30" rx="4" fill="#94a3b8"/>
+
+  <!-- Flame -->
+  <ellipse cx="256" cy="380" rx="40" ry="60" fill="url(#flame)"/>
+  <ellipse cx="256" cy="370" rx="25" ry="40" fill="#fef3c7"/>
+
+  <!-- Ring detail on rocket -->
+  <rect x="210" y="260" width="92" height="8" rx="2" fill="#a5b4fc"/>
+</svg>

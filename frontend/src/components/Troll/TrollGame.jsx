@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { trollWords, TROLL_STARS_REWARD } from '../../data/trollWords'
-import { ArrowLeft, Volume2, Info, Sparkles } from '../shared/Icons'
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+import { ArrowLeft, Volume2, Info } from '../shared/Icons'
+import { recordAttempt } from '../../services/spacedRepetition'
+import { useAuth } from '../../hooks/useAuth'
 
 // Geluidseffecten met Web Audio API
 const createFartSound = () => {
@@ -246,7 +246,8 @@ const Troll = ({ children, inflation, isExploding, showFart, onStartHold, onEndH
   )
 }
 
-export const TrollGame = ({ onBack, speak, addStars }) => {
+export const TrollGame = ({ onBack, speak, addStars, completeLevel }) => {
+  const { user } = useAuth()
   const [showIntro, setShowIntro] = useState(true)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [completed, setCompleted] = useState(false)
@@ -255,74 +256,13 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
   const [explodedIndex, setExplodedIndex] = useState(null)
   const [fartingIndex, setFartingIndex] = useState(null)
   const timerRef = useRef(null)
-
-  // Generated words state
-  const [generatedWords, setGeneratedWords] = useState([])
-  const [showGenerator, setShowGenerator] = useState(false)
-  const [generating, setGenerating] = useState(false)
-  const [syllableCount, setSyllableCount] = useState(2)
-  const [error, setError] = useState(null)
-  const [playingGenerated, setPlayingGenerated] = useState(false)
-  const [generatedIndex, setGeneratedIndex] = useState(0)
   const isProcessingRef = useRef(false) // Voorkom dubbele explosies
+  const attemptStartRef = useRef(null) // Voor tijd tracking
 
-  // Load generated words from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('generatedTrollWords')
-    if (saved) {
-      setGeneratedWords(JSON.parse(saved))
-    }
-  }, [])
-
-  // Current active words list
-  const activeWords = playingGenerated ? generatedWords : trollWords
-  const activeIndex = playingGenerated ? generatedIndex : currentIndex
-
-  // Generate new words
-  const generateNewWords = async () => {
-    setGenerating(true)
-    setError(null)
-
-    try {
-      const response = await fetch(`${API_URL}/api/generate-stress-words`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          syllableCount,
-          gradeLevel: 3,
-          quantity: 10
-        })
-      })
-
-      if (!response.ok) throw new Error('Genereren mislukt')
-
-      const data = await response.json()
-
-      localStorage.setItem('generatedTrollWords', JSON.stringify(data.words))
-      setGeneratedWords(data.words)
-      setShowGenerator(false)
-      speak('Nieuwe woorden gemaakt!')
-    } catch (err) {
-      setError('Oeps! Probeer opnieuw.')
-      console.error(err)
-    }
-
-    setGenerating(false)
-  }
-
-  // Start playing generated words
-  const startGeneratedRound = () => {
-    setPlayingGenerated(true)
-    setGeneratedIndex(0)
-    setCompleted(false)
-    setShowIntro(false)
-  }
-
-  // Clear generated words
-  const clearGeneratedWords = () => {
-    localStorage.removeItem('generatedTrollWords')
-    setGeneratedWords([])
-  }
+  // Gebruik ALLEEN de gevalideerde trollWords database
+  // NOOIT AI-gegenereerde woorden - dit kan leiden tot foute klemtoon patronen
+  const activeWords = trollWords
+  const activeIndex = currentIndex
 
   // Spreek woord uit bij nieuw woord
   useEffect(() => {
@@ -330,6 +270,7 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
     setExplodedIndex(null)
     setFartingIndex(null)
     isProcessingRef.current = false // Reset voor nieuw woord
+    attemptStartRef.current = Date.now() // Start tijd tracking
 
     if (!showIntro && !completed && activeWords.length > 0) {
       const word = activeWords[activeIndex]?.word?.replace(/-/g, '') || ''
@@ -339,7 +280,7 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
         }, 500)
       }
     }
-  }, [currentIndex, generatedIndex, showIntro, completed, playingGenerated])
+  }, [currentIndex, showIntro, completed])
 
   // Inflation timer
   useEffect(() => {
@@ -369,7 +310,7 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
     }
 
     return () => clearInterval(timerRef.current)
-  }, [heldIndex, currentIndex, generatedIndex, playingGenerated])
+  }, [heldIndex, currentIndex])
 
   const handleStartHold = (index) => {
     if (explodedIndex !== null) return
@@ -389,6 +330,12 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
       setFartingIndex(heldIndex)
       createFartSound() // Scheetgeluid!
       setInflations(prev => ({ ...prev, [heldIndex]: 0 }))
+
+      // Registreer foute poging voor spaced repetition
+      if (user?.id) {
+        const timeTaken = attemptStartRef.current ? Date.now() - attemptStartRef.current : null
+        recordAttempt(user.id, currentWord.word.replace(/-/g, ''), false, 'troll', timeTaken)
+      }
     } else if (isCorrect && currentInflation < 100) {
       setInflations(prev => ({ ...prev, [heldIndex]: 0 }))
     }
@@ -398,16 +345,19 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
 
   // Ga naar vorig woord
   const goToPreviousWord = () => {
-    if (playingGenerated) {
-      if (generatedIndex > 0) setGeneratedIndex(i => i - 1)
-    } else {
-      if (currentIndex > 0) setCurrentIndex(c => c - 1)
-    }
+    if (currentIndex > 0) setCurrentIndex(c => c - 1)
   }
 
   const handleSuccess = (index) => {
     setExplodedIndex(index)
     createExplosionSound() // BOEM!
+
+    // Registreer succesvolle poging voor spaced repetition
+    const currentWord = activeWords[activeIndex]
+    if (user?.id && currentWord) {
+      const timeTaken = attemptStartRef.current ? Date.now() - attemptStartRef.current : null
+      recordAttempt(user.id, currentWord.word.replace(/-/g, ''), true, 'troll', timeTaken)
+    }
 
     // Grappige trage mannenstem
     const sounds = ["KABOEEEEEM", "BOOOOEM", "SPLAAAATS", "PRRRRATS"]
@@ -418,18 +368,16 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
     // Extra tijd (3 sec) zodat kind het woord kan lezen
     setTimeout(() => {
       setExplodedIndex(null)
-      if (playingGenerated) {
-        if (generatedIndex < generatedWords.length - 1) {
-          setGeneratedIndex(i => i + 1)
-        } else {
-          setCompleted(true)
-          addStars(TROLL_STARS_REWARD)
-        }
+      if (currentIndex < trollWords.length - 1) {
+        setCurrentIndex(c => c + 1)
       } else {
-        if (currentIndex < trollWords.length - 1) {
-          setCurrentIndex(c => c + 1)
+        // Game voltooid - gebruik completeLevel voor persistent opslaan
+        setCompleted(true)
+        if (completeLevel) {
+          // completeLevel handled sterren intern
+          completeLevel('troll', 0, TROLL_STARS_REWARD)
         } else {
-          setCompleted(true)
+          // Fallback als completeLevel niet beschikbaar is
           addStars(TROLL_STARS_REWARD)
         }
       }
@@ -497,68 +445,6 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
     )
   }
 
-  // Generator scherm
-  if (showGenerator) {
-    return (
-      <div className="max-w-2xl mx-auto page-transition">
-        <div className="flex items-center gap-4 mb-6">
-          <button
-            onClick={() => setShowGenerator(false)}
-            className="bg-white/50 p-2 rounded-full hover:bg-white/70 transition"
-          >
-            <ArrowLeft size={24} />
-          </button>
-          <h2 className="text-2xl font-bold">Nieuwe Woorden Maken</h2>
-        </div>
-
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold mb-4">Aantal lettergrepen:</h3>
-          <div className="flex gap-3 mb-6">
-            {[2, 3].map(num => (
-              <button
-                key={num}
-                onClick={() => setSyllableCount(num)}
-                className={`px-8 py-4 rounded-xl font-bold text-xl transition ${
-                  syllableCount === num
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200'
-                }`}
-              >
-                {num}
-              </button>
-            ))}
-          </div>
-
-          {error && (
-            <p className="text-red-500 mb-4">{error}</p>
-          )}
-
-          <button
-            onClick={generateNewWords}
-            disabled={generating}
-            className={`w-full py-4 rounded-xl font-bold text-white transition flex items-center justify-center gap-2 ${
-              generating
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-purple-500 hover:bg-purple-600'
-            }`}
-          >
-            {generating ? (
-              <>
-                <span className="animate-spin">🌀</span>
-                Bezig met maken...
-              </>
-            ) : (
-              <>
-                <Sparkles size={20} />
-                Maak 10 Nieuwe Woorden!
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   // Klaar scherm
   if (completed) {
     return (
@@ -575,24 +461,15 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
             Terug naar Menu
           </button>
 
-          {/* Show generate option */}
           <button
-            onClick={() => setShowGenerator(true)}
-            className="bg-gradient-to-r from-purple-400 to-pink-400 text-white px-8 py-4 rounded-2xl font-bold hover:scale-105 transition shadow-lg flex items-center justify-center gap-2"
+            onClick={() => {
+              setCurrentIndex(0)
+              setCompleted(false)
+            }}
+            className="bg-white border-2 border-purple-300 text-purple-700 px-8 py-4 rounded-2xl font-bold hover:bg-purple-50 transition"
           >
-            <Sparkles size={20} />
-            Nieuwe Woorden Maken!
+            🔄 Opnieuw Spelen
           </button>
-
-          {/* Show play generated if available */}
-          {generatedWords.length > 0 && !playingGenerated && (
-            <button
-              onClick={startGeneratedRound}
-              className="bg-white border-2 border-purple-300 text-purple-700 px-8 py-4 rounded-2xl font-bold hover:bg-purple-50 transition flex items-center justify-center gap-2"
-            >
-              ✨ Speel Gemaakte Woorden ({generatedWords.length})
-            </button>
-          )}
         </div>
       </div>
     )
@@ -630,7 +507,6 @@ export const TrollGame = ({ onBack, speak, addStars }) => {
           )}
         </div>
         <div className="flex items-center gap-2 bg-purple-100 text-purple-800 px-4 py-2 rounded-xl font-bold">
-          {playingGenerated && <span className="text-pink-500">✨</span>}
           <span>👾 {activeIndex + 1} / {activeWords.length}</span>
           <button onClick={() => setShowIntro(true)} className="ml-2 bg-white p-1 rounded-full">
             <Info size={16} />

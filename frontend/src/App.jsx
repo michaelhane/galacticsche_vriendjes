@@ -10,6 +10,7 @@ import { ProfileSetup } from './components/Auth/ProfileSetup'
 // Game components
 import { Dashboard } from './components/Dashboard'
 import { Header } from './components/shared/Header'
+import { BugReporter } from './components/shared/BugReporter'
 import { GameMenu } from './components/CodeKraken/GameMenu'
 import { TrollGame } from './components/Troll/TrollGame'
 import { JumpGame } from './components/Jumper/JumpGame'
@@ -18,6 +19,7 @@ import { StoryMenu } from './components/Stories/StoryMenu'
 import { StoryMaker } from './components/Stories/StoryMaker'
 import { GeneratedStoryReader } from './components/Stories/GeneratedStoryReader'
 import { SettingsView } from './components/SettingsView'
+import { ParentalGate, ParentDashboard } from './components/Parent'
 
 // Test of native speech werkt (eenmalig)
 let useResponsiveVoice = false
@@ -37,27 +39,80 @@ if (typeof window !== 'undefined') {
   window.speechSynthesis?.addEventListener?.('voiceschanged', testNativeSpeech)
 }
 
-// Speech helper met ResponsiveVoice fallback
-const speak = (text) => {
-  // Probeer ResponsiveVoice eerst op problematische devices
-  if (useResponsiveVoice && window.responsiveVoice?.voiceSupport()) {
+// Cache voor Nederlandse stem
+let cachedNLVoice = null
+
+// Zoek beste Nederlandse stem - probeer Fenna of Maarten (niet Colette die afkortingen raar doet)
+const getNLVoice = () => {
+  if (cachedNLVoice) return cachedNLVoice
+
+  const voices = window.speechSynthesis?.getVoices() || []
+
+  // Probeer Fenna of Maarten eerst (Colette heeft afkortingen-bug)
+  const fenna = voices.find(v => v.name.includes('Fenna'))
+  const maarten = voices.find(v => v.name.includes('Maarten'))
+  const nlNL = voices.find(v => v.lang === 'nl-NL' && !v.name.includes('Colette'))
+  const anyNL = voices.find(v => v.lang === 'nl-NL')
+
+  cachedNLVoice = fenna || maarten || nlNL || anyNL || null
+  console.log('Selected voice:', cachedNLVoice?.name)
+  return cachedNLVoice
+}
+
+// Update cache wanneer voices laden
+if (typeof window !== 'undefined') {
+  window.speechSynthesis?.addEventListener?.('voiceschanged', () => {
+    cachedNLVoice = null
+    getNLVoice()
+  })
+}
+
+// Speech helper - met optionele stopTime om TTS te stoppen na X ms
+const speak = (text, stopTime = null) => {
+  // Clean de tekst
+  const cleanText = text.trim()
+  console.log('TTS speak:', cleanText, stopTime ? `(stop na ${stopTime}ms)` : '') // DEBUG
+
+  // Probeer ResponsiveVoice eerst (betrouwbaarder)
+  if (window.responsiveVoice) {
     window.responsiveVoice.cancel()
-    window.responsiveVoice.speak(text, 'Dutch Female', { rate: 0.9 })
+    window.responsiveVoice.speak(cleanText, 'Dutch Female', {
+      rate: 0.9,
+      pitch: 1.0,
+    })
+
+    // Stop na bepaalde tijd als stopTime is meegegeven
+    if (stopTime) {
+      setTimeout(() => {
+        window.responsiveVoice.cancel()
+      }, stopTime)
+    }
     return
   }
 
-  // Native Web Speech API
+  // Fallback naar native Web Speech API
   window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'nl-NL'
-  utterance.rate = 0.85
+  const utterance = new SpeechSynthesisUtterance(cleanText)
 
-  // Probeer Nederlandse stem te vinden
-  const voices = window.speechSynthesis.getVoices()
-  const nlVoice = voices.find(v => v.lang.includes('nl'))
-  if (nlVoice) utterance.voice = nlVoice
+  // Forceer Nederlands
+  utterance.lang = 'nl-NL'
+  utterance.rate = 0.8
+  utterance.pitch = 1.0
+
+  const nlVoice = getNLVoice()
+  if (nlVoice) {
+    utterance.voice = nlVoice
+    utterance.lang = nlVoice.lang
+  }
 
   window.speechSynthesis.speak(utterance)
+
+  // Stop na bepaalde tijd als stopTime is meegegeven
+  if (stopTime) {
+    setTimeout(() => {
+      window.speechSynthesis.cancel()
+    }, stopTime)
+  }
 }
 
 function App() {
@@ -130,11 +185,11 @@ function App() {
         )}
 
         {currentView === 'troll' && (
-          <TrollGame {...gameProps} />
+          <TrollGame {...gameProps} completeLevel={completeLevel} />
         )}
 
         {currentView === 'jumper' && (
-          <JumpGame {...gameProps} />
+          <JumpGame {...gameProps} completeLevel={completeLevel} />
         )}
 
         {currentView === 'reader' && (
@@ -180,7 +235,25 @@ function App() {
             profile={profile}
           />
         )}
+
+        {currentView === 'parent-gate' && (
+          <ParentalGate
+            onSuccess={() => setCurrentView('parent-dashboard')}
+            onCancel={() => setCurrentView('dashboard')}
+          />
+        )}
+
+        {currentView === 'parent-dashboard' && (
+          <ParentDashboard
+            userId={user?.id}
+            profile={profile}
+            onBack={() => setCurrentView('dashboard')}
+          />
+        )}
       </main>
+
+      {/* Bug reporter voor TTS problemen */}
+      <BugReporter />
     </div>
   )
 }

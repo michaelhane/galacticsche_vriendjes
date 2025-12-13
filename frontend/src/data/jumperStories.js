@@ -23,7 +23,7 @@ export const jumperStories = [
     difficulty: 1,
     sentences: [
       { text: "De kik-ker zit op een le-lie-blad.", syllables: ["De", "kik", "ker", "zit", "op", "een", "le", "lie", "blad"] },
-      { text: "Hij kwa-akt heel vro-lijk.", syllables: ["Hij", "kwa", "akt", "heel", "vro", "lijk"] },
+      { text: "Hij kwaakt heel vro-lijk.", syllables: ["Hij", "kwaakt", "heel", "vro", "lijk"] },
       { text: "De kik-ker springt om-hoog.", syllables: ["De", "kik", "ker", "springt", "om", "hoog"] },
       { text: "Hij vangt een vlie-gen-de mug.", syllables: ["Hij", "vangt", "een", "vlie", "gen", "de", "mug"] },
       { text: "De kik-ker is te-vre-den.", syllables: ["De", "kik", "ker", "is", "te", "vre", "den"] }

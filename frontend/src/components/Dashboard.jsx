@@ -99,11 +99,21 @@ export const Dashboard = ({ setView, speak, profile }) => {
           <div>
             <h4 className="font-bold text-lg mb-1">Tip van de dag</h4>
             <p className="opacity-70">
-              Klap in je handen bij elke lettergreep. 
+              Klap in je handen bij elke lettergreep.
               Zo hoor je hoeveel stukjes een woord heeft!
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Ouder sectie link */}
+      <div className="mt-6 text-center">
+        <button
+          onClick={() => setView('parent-gate')}
+          className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          👨‍👩‍👧 Ouder sectie
+        </button>
       </div>
     </div>
   )

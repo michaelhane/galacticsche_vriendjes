@@ -29,7 +29,8 @@ app.use(cors({
   },
   credentials: true
 }));
-app.use(express.json());
+// Increase payload limit for image uploads (10MB)
+app.use(express.json({ limit: '10mb' }));
 
 // Health check
 app.get('/health', (req, res) => {
@@ -157,44 +158,48 @@ app.post('/api/generate-syllable-words', async (req, res) => {
   }
 });
 
-// Generate stress/klemtoon words for Troll Game
-app.post('/api/generate-stress-words', async (req, res) => {
-  const { syllableCount = 2, gradeLevel = 3, quantity = 5 } = req.body;
+// OCR Scan - Boek Scanner voor weekwoorden
+app.post('/api/ocr-scan', async (req, res) => {
+  const { image } = req.body;
 
-  const gradeConfig = {
-    3: { complexity: 'simpel', avi: 'M3' },
-    4: { complexity: 'gemiddeld', avi: 'E4' },
-    5: { complexity: 'uitdagend', avi: 'M5' }
-  };
-  const config = gradeConfig[gradeLevel] || gradeConfig[3];
+  if (!image) {
+    return res.status(400).json({ error: 'Geen afbeelding ontvangen' });
+  }
 
   const prompt = `
-    Je bent een Nederlandse taalexpert voor kinderen in groep ${gradeLevel} (AVI ${config.avi}).
-    Genereer ${quantity} woorden met PRECIES ${syllableCount} lettergrepen voor een klemtoon-oefening.
+    Je bent een OCR-expert voor Nederlandse schoolboeken.
+    Analyseer deze afbeelding van een boekpagina en extraheer alle Nederlandse woorden.
 
-    Regels:
-    - Alleen bekende woorden voor kinderen groep ${gradeLevel}
-    - Het woord moet ${syllableCount} lettergrepen hebben
-    - Markeer de lettergreep met KLEMTOON in HOOFDLETTERS
-    - Varieer de klemtoonpositie (niet allemaal op dezelfde plek)
-    - stressIndex is 0 voor eerste lettergreep, 1 voor tweede, etc.
-    - Geen woorden die al bestaan: lopen, tafels, rennen, spinnen, ballon, kanon, computer, telefoon
+    Instructies:
+    1. Herken alle Nederlandse woorden in de afbeelding
+    2. Filter op woorden geschikt voor kinderen groep 3-5 (6-10 jaar)
+    3. Splits elk woord correct in lettergrepen volgens Nederlandse spellingregels
+    4. Negeer: getallen, symbolen, te korte woorden (1-2 letters), buitenlandse woorden
+    5. Geef maximaal 20 woorden terug
+
+    Nederlandse lettergreep-regels:
+    - Elke lettergreep heeft minimaal één klinker (a, e, i, o, u, ij, ei, au, ou, ui, eu, oe, ie, uu)
+    - Bij twee medeklinkers tussen klinkers: splits meestal na de eerste (pen-nen, kat-ten)
+    - Bij één medeklinker tussen klinkers: medeklinker gaat naar volgende lettergreep (lo-pen, ma-ken)
+    - Samenstellingen splits je op de woordgrens (voet-bal, school-boek)
 
     Geef antwoord DIRECT als JSON (geen markdown):
     {
       "words": [
         {
-          "word": "fiet-sen",
-          "parts": ["FIET", "sen"],
-          "stressIndex": 0
+          "word": "voetbal",
+          "syllables": ["voet", "bal"]
         },
         {
-          "word": "pi-a-no",
-          "parts": ["pi", "A", "no"],
-          "stressIndex": 1
+          "word": "lopen",
+          "syllables": ["lo", "pen"]
         }
-      ]
+      ],
+      "totalTextFound": true
     }
+
+    Als je geen tekst kunt herkennen, geef:
+    { "words": [], "totalTextFound": false }
   `;
 
   try {
@@ -204,7 +209,17 @@ app.post('/api/generate-stress-words', async (req, res) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: image
+                }
+              }
+            ]
+          }],
           generationConfig: { responseMimeType: 'application/json' }
         })
       }
@@ -212,17 +227,34 @@ app.post('/api/generate-stress-words', async (req, res) => {
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('Gemini API error:', error);
-      return res.status(500).json({ error: 'Klemtoon woorden genereren mislukt' });
+      console.error('Gemini Vision API error:', error);
+      return res.status(500).json({ error: 'OCR scan mislukt' });
     }
 
     const data = await response.json();
+
+    // Check voor lege response
+    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+      return res.json({ words: [], totalTextFound: false });
+    }
+
     const result = JSON.parse(data.candidates[0].content.parts[0].text);
 
-    res.json(result);
+    // Valideer en filter resultaten
+    const validWords = (result.words || []).filter(w =>
+      w.word &&
+      w.syllables &&
+      w.syllables.length > 0 &&
+      w.syllables.join('') === w.word.replace(/-/g, '')
+    );
+
+    res.json({
+      words: validWords,
+      totalTextFound: result.totalTextFound ?? validWords.length > 0
+    });
   } catch (error) {
-    console.error('Error generating stress words:', error);
-    res.status(500).json({ error: 'Er ging iets mis bij het maken van klemtoon woorden' });
+    console.error('Error in OCR scan:', error);
+    res.status(500).json({ error: 'Er ging iets mis bij het scannen' });
   }
 });
 
