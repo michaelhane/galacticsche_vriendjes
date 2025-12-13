@@ -58,12 +58,17 @@ export const Login = () => {
     const { error } = await signInWithOtp(email)
 
     if (error) {
-      setMessage({ type: 'error', text: 'Er ging iets mis. Probeer opnieuw.' })
+      console.error('Login error:', error)
+      // Toon specifieke error message
+      const errorMsg = error.message?.includes('rate')
+        ? 'Te veel pogingen. Wacht even en probeer opnieuw.'
+        : error.message || 'Er ging iets mis. Probeer opnieuw.'
+      setMessage({ type: 'error', text: errorMsg })
     } else {
       setStep('code')
       setMessage({
         type: 'success',
-        text: '✨ Code verstuurd! Check de email.'
+        text: '✨ Email verstuurd! Check je inbox voor de login link of code.'
       })
     }
     setLoading(false)

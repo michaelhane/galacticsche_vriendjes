@@ -71,16 +71,21 @@ export const AuthProvider = ({ children }) => {
     setLoading(false)
   }
 
-  // OTP login - stuurt 6-cijferige code naar email
+  // OTP login - stuurt magic link naar email (met code in link)
   const signInWithOtp = async (email) => {
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        // Geen redirect URL = alleen code, geen magic link
-        shouldCreateUser: true
-      }
-    })
-    return { error }
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin,
+          shouldCreateUser: true
+        }
+      })
+      return { error }
+    } catch (e) {
+      console.error('signInWithOtp exception:', e)
+      return { error: e }
+    }
   }
 
   // Verifieer de OTP code
