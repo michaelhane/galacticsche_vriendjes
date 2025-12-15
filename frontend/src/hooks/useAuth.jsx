@@ -51,10 +51,10 @@ export const AuthProvider = ({ children }) => {
       return
     }
 
-    // Check huidige sessie met timeout
+    // Check huidige sessie met timeout (10 sec voor cold starts)
     const sessionPromise = supabase.auth.getSession()
     const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 2000)
+      setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 10000)
     )
 
     Promise.race([sessionPromise, timeoutPromise]).then((result) => {
@@ -106,7 +106,7 @@ export const AuthProvider = ({ children }) => {
       return
     }
 
-    // STAP 2: Geen cache, probeer Supabase met korte timeout
+    // STAP 2: Geen cache, probeer Supabase (10 sec voor cold starts)
     const profilePromise = supabase
       .from('profiles')
       .select('*')
@@ -114,7 +114,7 @@ export const AuthProvider = ({ children }) => {
       .single()
 
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
     )
 
     try {

@@ -95,10 +95,10 @@ export const useProgress = () => {
       // STAP 1: Laad eerst uit localStorage (instant feedback)
       const localData = loadFromLocalStorage()
 
-      // STAP 2: Probeer cloud data te laden (met timeout van 3 seconden)
+      // STAP 2: Probeer cloud data te laden (10 sec voor cold starts)
       const cloudPromise = loadFromCloud(supabase, user.id)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Cloud timeout')), 3000)
+        setTimeout(() => reject(new Error('Cloud timeout')), 10000)
       )
 
       let cloudData
