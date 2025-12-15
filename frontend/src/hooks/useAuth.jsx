@@ -51,8 +51,26 @@ export const AuthProvider = ({ children }) => {
       return
     }
 
-    // Check huidige sessie
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check huidige sessie met timeout
+    const sessionPromise = supabase.auth.getSession()
+    const timeoutPromise = new Promise((resolve) =>
+      setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 2000)
+    )
+
+    Promise.race([sessionPromise, timeoutPromise]).then((result) => {
+      if (result.timedOut) {
+        console.warn('Session check timeout - using cached profile')
+        // Probeer cached profiel te gebruiken
+        const cached = getCachedProfile()
+        if (cached) {
+          setUser({ id: cached.id })
+          setProfile(cached)
+        }
+        setLoading(false)
+        return
+      }
+
+      const session = result.data?.session
       setUser(session?.user ?? null)
       if (session?.user) {
         fetchProfile(session.user.id)
