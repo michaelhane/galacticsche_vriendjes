@@ -68,7 +68,7 @@ export const Login = () => {
       setStep('code')
       setMessage({
         type: 'success',
-        text: '✨ Email verstuurd! Check je inbox voor de login link of code.'
+        text: '✨ Email verstuurd! Check je inbox voor de code.'
       })
     }
     setLoading(false)
@@ -77,7 +77,7 @@ export const Login = () => {
   // Stap 2: Verifieer de code
   const handleVerifyCode = async (e) => {
     e.preventDefault()
-    if (!code || code.length < 6) return
+    if (!code || code.length < 6) return // Accepteer 6-8 cijfers
 
     setLoading(true)
     setMessage(null)
@@ -149,17 +149,17 @@ export const Login = () => {
           <form onSubmit={handleVerifyCode} className="space-y-6">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                🔢 Voer de 6-cijferige code in
+                🔢 Voer de code in
               </label>
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                maxLength={6}
+                maxLength={8}
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
-                className="w-full text-3xl text-center tracking-[0.5em] p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none font-mono"
+                placeholder="00000000"
+                className="w-full text-2xl text-center tracking-[0.3em] p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none font-mono"
                 autoFocus
               />
               <p className="text-sm text-gray-500 mt-2 text-center">
@@ -208,7 +208,7 @@ export const Login = () => {
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-500">
             {step === 'email'
-              ? 'We sturen een 6-cijferige code naar je email.'
+              ? 'We sturen een code naar je email.'
               : 'De code is 10 minuten geldig.'
             }
           </p>

@@ -95,8 +95,19 @@ export const useProgress = () => {
       // STAP 1: Laad eerst uit localStorage (instant feedback)
       const localData = loadFromLocalStorage()
 
-      // STAP 2: Probeer cloud data te laden
-      const cloudData = await loadFromCloud(supabase, user.id)
+      // STAP 2: Probeer cloud data te laden (met timeout van 5 seconden)
+      const cloudPromise = loadFromCloud(supabase, user.id)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Cloud timeout')), 5000)
+      )
+
+      let cloudData
+      try {
+        cloudData = await Promise.race([cloudPromise, timeoutPromise])
+      } catch (e) {
+        console.warn('Cloud load failed/timeout, using localStorage:', e.message)
+        cloudData = null
+      }
 
       let finalData
 
