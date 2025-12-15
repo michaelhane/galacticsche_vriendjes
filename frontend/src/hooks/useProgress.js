@@ -95,10 +95,10 @@ export const useProgress = () => {
       // STAP 1: Laad eerst uit localStorage (instant feedback)
       const localData = loadFromLocalStorage()
 
-      // STAP 2: Probeer cloud data te laden (met timeout van 5 seconden)
+      // STAP 2: Probeer cloud data te laden (met timeout van 3 seconden)
       const cloudPromise = loadFromCloud(supabase, user.id)
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Cloud timeout')), 5000)
+        setTimeout(() => reject(new Error('Cloud timeout')), 3000)
       )
 
       let cloudData
@@ -152,33 +152,37 @@ export const useProgress = () => {
       }
       setUnlockedItemsState(itemIds)
 
-      // STAP 5: Process retry queue (eenmalig bij startup)
-      if (!retryProcessed.current) {
+      // STAP 5: Process retry queue (alleen als cloud bereikbaar was)
+      if (!retryProcessed.current && cloudData) {
         retryProcessed.current = true
-        const retryFn = async (operation) => {
-          if (operation.type === 'complete_level') {
-            await supabase.from('completed_levels').upsert({
-              user_id: user.id,
-              game_type: operation.gameType,
-              level_id: operation.levelId,
-              stars_earned: operation.starsEarned,
-              completed_at: operation.timestamp
-            }, { onConflict: 'user_id,game_type,level_id' })
-          } else if (operation.type === 'add_stars') {
-            await supabase.from('profiles').update({
-              stars: operation.newStars,
-              updated_at: new Date().toISOString()
-            }).eq('id', user.id)
-          } else if (operation.type === 'purchase_item') {
-            await supabase.from('user_items').insert({
-              user_id: user.id,
-              item_id: operation.itemId
-            })
+        try {
+          const retryFn = async (operation) => {
+            if (operation.type === 'complete_level') {
+              await supabase.from('completed_levels').upsert({
+                user_id: user.id,
+                game_type: operation.gameType,
+                level_id: operation.levelId,
+                stars_earned: operation.starsEarned,
+                completed_at: operation.timestamp
+              }, { onConflict: 'user_id,game_type,level_id' })
+            } else if (operation.type === 'add_stars') {
+              await supabase.from('profiles').update({
+                stars: operation.newStars,
+                updated_at: new Date().toISOString()
+              }).eq('id', user.id)
+            } else if (operation.type === 'purchase_item') {
+              await supabase.from('user_items').insert({
+                user_id: user.id,
+                item_id: operation.itemId
+              })
+            }
           }
-        }
-        const { processed } = await processRetryQueue(retryFn)
-        if (processed > 0) {
-          console.log(`Retry queue: ${processed} operaties gesynchroniseerd`)
+          const { processed } = await processRetryQueue(retryFn)
+          if (processed > 0) {
+            console.log(`Retry queue: ${processed} operaties gesynchroniseerd`)
+          }
+        } catch (retryError) {
+          console.warn('Retry queue processing failed:', retryError)
         }
       }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { jumperStories, JUMPER_STARS_PER_STORY } from '../../data/jumperStories'
+import { jumperStories } from '../../data/jumperStories'
 import { ArrowLeft, Volume2, Info, Lock } from '../shared/Icons'
 
 // SVG Kikker zittend - van originele HTML
@@ -260,8 +260,14 @@ export const JumpGame = ({ onBack, speak, addStars, completeLevel }) => {
 
     // Check of dit het huidige of volgende blok is en we niet al springen
     if ((!clickedCurrent && !clickedNext) || isJumping) return
-    // Laatste blok moet ook klikbaar zijn!
-    if (nextIndex > sentence.syllables.length - 1) return
+
+    // Als we op laatste lettergreep staan en klikken, ga naar volgende zin
+    if (nextIndex > sentence.syllables.length - 1) {
+      if (clickedCurrent && sentenceCompleted) {
+        goToNextSentence()
+      }
+      return
+    }
 
     // Start spring animatie
     setIsJumping(true)
@@ -285,14 +291,25 @@ export const JumpGame = ({ onBack, speak, addStars, completeLevel }) => {
     }, 600)
   }
 
+  // Sterren per 5 zinnen
+  const STARS_PER_5_SENTENCES = 5
+
   // Handmatig naar volgende zin (of einde verhaal)
   const goToNextSentence = () => {
     // Reset sentence state
     setSentenceCompleted(false)
 
+    const nextSentenceIndex = currentSentenceIndex + 1
+
+    // Geef sterren elke 5 zinnen (zin 5, 10, 15, etc.)
+    if (nextSentenceIndex % 5 === 0 && nextSentenceIndex > 0) {
+      addStars(STARS_PER_5_SENTENCES)
+      speak(`${STARS_PER_5_SENTENCES} sterren!`)
+    }
+
     // Check of dit het laatste was
     if (currentSentenceIndex < selectedStory.sentences.length - 1) {
-      setCurrentSentenceIndex(prev => prev + 1)
+      setCurrentSentenceIndex(nextSentenceIndex)
       setCurrentSyllableIndex(-1) // Start op de grond
       setWorldOffset(0)
     } else {
@@ -300,18 +317,20 @@ export const JumpGame = ({ onBack, speak, addStars, completeLevel }) => {
     }
   }
 
+  // Bonus sterren aan het einde
+  const COMPLETION_BONUS = 5
+
   const handleStoryComplete = () => {
     setStoryCompleted(true)
     setSentenceCompleted(false)
     setCompletedStories(prev => [...prev, selectedStory.id])
 
-    // Gebruik completeLevel voor persistent opslaan
+    // Geef bonus sterren voor voltooien
+    addStars(COMPLETION_BONUS)
+
+    // Markeer level als voltooid (zonder extra sterren, die zijn al gegeven)
     if (completeLevel) {
-      // completeLevel handled sterren intern
-      completeLevel('jumper', selectedStory.id, JUMPER_STARS_PER_STORY)
-    } else {
-      // Fallback als completeLevel niet beschikbaar is
-      addStars(JUMPER_STARS_PER_STORY)
+      completeLevel('jumper', selectedStory.id, 0)
     }
 
     speak("Fantastisch! Je hebt het verhaal uit!")
@@ -412,7 +431,7 @@ export const JumpGame = ({ onBack, speak, addStars, completeLevel }) => {
         </h2>
         <p className="text-xl mb-2">🎉 Geweldig gedaan! 🎉</p>
         <p className="text-lg mb-8 opacity-70">
-          +{JUMPER_STARS_PER_STORY} sterren verdiend!
+          +{COMPLETION_BONUS} bonus sterren!
         </p>
         <div className="flex gap-4">
           <button

@@ -17,6 +17,26 @@ const DEMO_PROFILE = {
   interests: ['dinosaurussen', 'ruimte', 'dieren']
 }
 
+// Cache profiel in localStorage voor snelle load
+const PROFILE_CACHE_KEY = 'galactische_vrienden_profile'
+
+const getCachedProfile = () => {
+  try {
+    const cached = localStorage.getItem(PROFILE_CACHE_KEY)
+    return cached ? JSON.parse(cached) : null
+  } catch { return null }
+}
+
+const setCachedProfile = (profile) => {
+  try {
+    if (profile) {
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile))
+    } else {
+      localStorage.removeItem(PROFILE_CACHE_KEY)
+    }
+  } catch { }
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -58,17 +78,60 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const fetchProfile = async (userId) => {
-    const { data, error } = await supabase
+    // STAP 1: Gebruik cache voor instant load
+    const cached = getCachedProfile()
+    if (cached && cached.id === userId) {
+      setProfile(cached)
+      setLoading(false)
+      // Sync op achtergrond (geen await)
+      syncProfileFromCloud(userId)
+      return
+    }
+
+    // STAP 2: Geen cache, probeer Supabase met korte timeout
+    const profilePromise = supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching profile:', error)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
+    )
+
+    try {
+      const { data, error } = await Promise.race([profilePromise, timeoutPromise])
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching profile:', error)
+      }
+      if (data) {
+        setProfile(data)
+        setCachedProfile(data)
+      }
+    } catch (e) {
+      console.warn('Profile fetch failed/timeout:', e.message)
+      setProfile(null)
     }
-    setProfile(data)
     setLoading(false)
+  }
+
+  // Achtergrond sync - update cache met verse data
+  const syncProfileFromCloud = async (userId) => {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (data) {
+        setProfile(data)
+        setCachedProfile(data)
+      }
+    } catch (e) {
+      // Stil falen - cache is al geladen
+    }
   }
 
   // OTP login - stuurt magic link naar email (met code in link)
@@ -111,8 +174,9 @@ export const AuthProvider = ({ children }) => {
 
   // Uitloggen
   const signOut = async () => {
-    // Clear demo mode
+    // Clear demo mode en cache
     localStorage.removeItem('demo_mode')
+    setCachedProfile(null)
 
     const { error } = await supabase.auth.signOut()
     if (!error) {
@@ -143,8 +207,9 @@ export const AuthProvider = ({ children }) => {
       .select()
       .single()
 
-    if (!error) {
+    if (!error && data) {
       setProfile(data)
+      setCachedProfile(data) // Cache updaten
     }
     return { data, error }
   }
