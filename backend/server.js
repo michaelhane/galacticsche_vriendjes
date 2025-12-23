@@ -1,8 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import Anthropic from '@anthropic-ai/sdk';
 
 dotenv.config();
+
+// Initialize Anthropic client
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 const app = express();
 const PORT = process.env.PORT || 3050;
@@ -37,7 +43,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Gemini API Proxy - houdt API key veilig op server
+// Claude API - Story Generation
 app.post('/api/generate-story', async (req, res) => {
   const { hero, place, item, gradeLevel = 3 } = req.body;
 
@@ -52,45 +58,108 @@ app.post('/api/generate-story', async (req, res) => {
   };
   const config = gradeConfig[gradeLevel] || gradeConfig[3];
 
-  const prompt = `
-    Je bent een schrijver voor kinderen in groep ${gradeLevel} (AVI ${config.avi}).
-    Schrijf een heel kort, grappig verhaaltje.
-    Onderwerpen: Hoofdpersoon: ${hero}, Locatie: ${place}, Voorwerp: ${item}.
-    Regels: Maximaal ${config.maxSentences} zinnen. Korte zinnen (max ${config.maxWords} woorden). Geen moeilijke woorden.
-    Geef antwoord DIRECT als JSON in dit formaat (geen markdown):
-    {
-        "title": "Een leuke titel",
-        "content": ["Zin 1.", "Zin 2.", "Zin 3."],
-        "fact": "Een kort, leuk weetje over ${place} of ${hero} (max 1 zin)."
-    }
-  `;
+  const systemPrompt = `Je bent een Nederlandse kinderboekenauteur voor kinderen in groep ${gradeLevel} (AVI ${config.avi}).
+
+VEREISTEN:
+- ${config.maxSentences} korte zinnen (max ${config.maxWords} woorden per zin)
+- Eenvoudige woorden
+- Grappig en leuk
+- Positieve boodschap
+- 1 weetje over het onderwerp
+
+Antwoord met ALLEEN ruwe JSON. GEEN markdown, GEEN codeblokken.
+Begin direct met { en eindig met }
+
+Format: {"title":"...","content":["Zin 1.","Zin 2."],"fact":"Een leuk weetje."}`;
+
+  const userPrompt = `Schrijf een verhaal met:
+- Hoofdpersoon: ${hero}
+- Locatie: ${place}
+- Voorwerp: ${item}`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json' }
-        })
-      }
-    );
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 1024,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: [
+        { role: 'user', content: userPrompt }
+      ]
+    });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Gemini API error:', error);
-      return res.status(500).json({ error: 'Verhaal genereren mislukt' });
-    }
+    // Get response text
+    let text = message.content[0].text;
 
-    const data = await response.json();
-    const story = JSON.parse(data.candidates[0].content.parts[0].text);
-    
+    // Strip markdown code blocks if present
+    text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    text = text.trim();
+
+    const story = JSON.parse(text);
+
+    console.log('✅ Story generated with Claude:', story.title);
     res.json(story);
   } catch (error) {
     console.error('Error generating story:', error);
     res.status(500).json({ error: 'Er ging iets mis bij het maken van het verhaal' });
+  }
+});
+
+// Claude API - Comprehension Quiz Generation
+app.post('/api/generate-quiz', async (req, res) => {
+  const { story, storyTitle, gradeLevel = 3 } = req.body;
+
+  if (!story) {
+    return res.status(400).json({ error: 'Verhaal is verplicht' });
+  }
+
+  // Join story array if needed
+  const storyText = Array.isArray(story) ? story.join(' ') : story;
+
+  const systemPrompt = `Je bent een Nederlandse onderwijsexpert voor kinderen in groep ${gradeLevel}.
+
+Maak 3-4 begripvragen over het verhaal:
+- 2 letterlijke vragen (antwoord staat direct in de tekst)
+- 1 inferentiële vraag (kind moet nadenken/afleiden)
+- Elke vraag heeft 4 antwoordopties (1 correct, 3 plausibel maar fout)
+
+BELANGRIJK:
+- Gebruik eenvoudige taal voor groep ${gradeLevel}
+- Maak de foute opties geloofwaardig maar duidelijk fout
+- Geef een korte uitleg waarom het antwoord correct is
+
+Antwoord met ALLEEN ruwe JSON. GEEN markdown, GEEN codeblokken.
+Begin direct met { en eindig met }
+
+Format:
+{"questions":[{"question":"Vraag hier?","type":"literal","options":["A","B","C","D"],"correct_index":0,"explanation":"Korte uitleg"}]}`;
+
+  const userPrompt = `Maak begripvragen voor dit verhaal${storyTitle ? ` (${storyTitle})` : ''}:
+
+"${storyText}"`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 1024,
+      temperature: 0.5,
+      system: systemPrompt,
+      messages: [
+        { role: 'user', content: userPrompt }
+      ]
+    });
+
+    let text = message.content[0].text;
+    text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    text = text.trim();
+
+    const quiz = JSON.parse(text);
+
+    console.log('✅ Quiz generated with Claude:', quiz.questions?.length, 'questions');
+    res.json(quiz);
+  } catch (error) {
+    console.error('Error generating quiz:', error);
+    res.status(500).json({ error: 'Er ging iets mis bij het maken van de quiz' });
   }
 });
 
@@ -158,7 +227,7 @@ app.post('/api/generate-syllable-words', async (req, res) => {
   }
 });
 
-// OCR Scan - Boek Scanner voor weekwoorden
+// Claude API - OCR Scan for Book Scanner
 app.post('/api/ocr-scan', async (req, res) => {
   const { image } = req.body;
 
@@ -166,79 +235,60 @@ app.post('/api/ocr-scan', async (req, res) => {
     return res.status(400).json({ error: 'Geen afbeelding ontvangen' });
   }
 
-  const prompt = `
-    Je bent een OCR-expert voor Nederlandse schoolboeken.
-    Analyseer deze afbeelding van een boekpagina en extraheer alle Nederlandse woorden.
+  const systemPrompt = `Je bent een OCR-expert voor Nederlandse schoolboeken.
 
-    Instructies:
-    1. Herken alle Nederlandse woorden in de afbeelding
-    2. Filter op woorden geschikt voor kinderen groep 3-5 (6-10 jaar)
-    3. Splits elk woord correct in lettergrepen volgens Nederlandse spellingregels
-    4. Negeer: getallen, symbolen, te korte woorden (1-2 letters), buitenlandse woorden
-    5. Geef maximaal 20 woorden terug
+Analyseer de afbeelding en extraheer Nederlandse woorden geschikt voor kinderen groep 3-5.
 
-    Nederlandse lettergreep-regels:
-    - Elke lettergreep heeft minimaal één klinker (a, e, i, o, u, ij, ei, au, ou, ui, eu, oe, ie, uu)
-    - Bij twee medeklinkers tussen klinkers: splits meestal na de eerste (pen-nen, kat-ten)
-    - Bij één medeklinker tussen klinkers: medeklinker gaat naar volgende lettergreep (lo-pen, ma-ken)
-    - Samenstellingen splits je op de woordgrens (voet-bal, school-boek)
+INSTRUCTIES:
+1. Herken alle Nederlandse woorden in de afbeelding
+2. Splits elk woord in lettergrepen
+3. Identificeer de beklemtoonde lettergreep (0-indexed)
+4. Negeer: getallen, symbolen, woorden < 3 letters, buitenlandse woorden
+5. Maximum 20 woorden
 
-    Geef antwoord DIRECT als JSON (geen markdown):
-    {
-      "words": [
-        {
-          "word": "voetbal",
-          "syllables": ["voet", "bal"]
-        },
-        {
-          "word": "lopen",
-          "syllables": ["lo", "pen"]
-        }
-      ],
-      "totalTextFound": true
-    }
+LETTERGREEP-REGELS:
+- Twee medeklinkers tussen klinkers: splits na eerste (pen-nen, kat-ten)
+- Eén medeklinker tussen klinkers: naar volgende lettergreep (lo-pen, ma-ken)
+- Samenstellingen: splits op woordgrens (voet-bal)
 
-    Als je geen tekst kunt herkennen, geef:
-    { "words": [], "totalTextFound": false }
-  `;
+Antwoord met ALLEEN ruwe JSON. GEEN markdown.
+
+Format:
+{"words":[{"word":"voetbal","syllables":["voet","bal"],"stress_index":0}],"totalTextFound":true}
+
+Als geen tekst herkend: {"words":[],"totalTextFound":false}`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: 'image/jpeg',
-                  data: image
-                }
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: 'image/jpeg',
+                data: image
               }
-            ]
-          }],
-          generationConfig: { responseMimeType: 'application/json' }
-        })
-      }
-    );
+            },
+            {
+              type: 'text',
+              text: 'Analyseer deze boekpagina en extraheer de Nederlandse woorden met lettergrepen.'
+            }
+          ]
+        }
+      ]
+    });
 
-    if (!response.ok) {
-      const error = await response.text();
-      console.error('Gemini Vision API error:', error);
-      return res.status(500).json({ error: 'OCR scan mislukt' });
-    }
+    let text = message.content[0].text;
+    text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    text = text.trim();
 
-    const data = await response.json();
-
-    // Check voor lege response
-    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
-      return res.json({ words: [], totalTextFound: false });
-    }
-
-    const result = JSON.parse(data.candidates[0].content.parts[0].text);
+    const result = JSON.parse(text);
 
     // Valideer en filter resultaten
     const validWords = (result.words || []).filter(w =>
@@ -248,6 +298,7 @@ app.post('/api/ocr-scan', async (req, res) => {
       w.syllables.join('') === w.word.replace(/-/g, '')
     );
 
+    console.log('✅ OCR scan with Claude:', validWords.length, 'words found');
     res.json({
       words: validWords,
       totalTextFound: result.totalTextFound ?? validWords.length > 0
@@ -255,6 +306,67 @@ app.post('/api/ocr-scan', async (req, res) => {
   } catch (error) {
     console.error('Error in OCR scan:', error);
     res.status(500).json({ error: 'Er ging iets mis bij het scannen' });
+  }
+});
+
+// Claude API - Reading Expression Analysis
+app.post('/api/analyze-expression', async (req, res) => {
+  const { storyText, readingDescription, gradeLevel = 3 } = req.body;
+
+  if (!storyText || !readingDescription) {
+    return res.status(400).json({ error: 'Verhaal en leesbeschrijving zijn verplicht' });
+  }
+
+  const systemPrompt = `Je bent een vriendelijke leescoach voor kinderen in groep ${gradeLevel}.
+
+Beoordeel de voorleesprestatie op basis van de beschrijving.
+
+BEOORDELINGSCRITERIA:
+1. Tempo (te snel, goed, te langzaam)
+2. Expressie (monotoon, enigszins expressief, zeer expressief)
+3. Pauzes (geen, correct bij leestekens, overdreven)
+4. Vloeiendheid (hakkelend, redelijk, vloeiend)
+
+SCORES: 1 (moet oefenen) tot 5 (uitstekend)
+
+BELANGRIJK:
+- Geef altijd positieve, bemoedigende feedback
+- Geef 1 concrete tip om te verbeteren
+- Gebruik eenvoudige taal voor kinderen
+
+Antwoord met ALLEEN ruwe JSON. GEEN markdown.
+
+Format:
+{"tempo_score":3,"expression_score":4,"pause_score":3,"fluency_score":4,"overall_score":3.5,"feedback_nl":"Positieve feedback in 1-2 zinnen","tip_nl":"1 concrete tip","encouragement":"Korte aanmoediging"}`;
+
+  const userPrompt = `Het kind las dit verhaal:
+"${storyText}"
+
+Beschrijving van hoe het kind las:
+${readingDescription}`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 512,
+      temperature: 0.5,
+      system: systemPrompt,
+      messages: [
+        { role: 'user', content: userPrompt }
+      ]
+    });
+
+    let text = message.content[0].text;
+    text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    text = text.trim();
+
+    const analysis = JSON.parse(text);
+
+    console.log('✅ Expression analysis with Claude, overall:', analysis.overall_score);
+    res.json(analysis);
+  } catch (error) {
+    console.error('Error analyzing expression:', error);
+    res.status(500).json({ error: 'Er ging iets mis bij de analyse' });
   }
 });
 
