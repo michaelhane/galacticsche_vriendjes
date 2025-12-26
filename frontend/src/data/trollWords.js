@@ -25,7 +25,7 @@ export const trollWords = [
   
   // 3 lettergrepen - klemtoon achteraan
   { word: 'te-le-foon', parts: ['te', 'le', 'FOON'], stressIndex: 2 },
-  { word: 'cho-co-la', parts: ['cho', 'co', 'LA'], stressIndex: 2 }
+  { word: 'cho-co-la', parts: ['CHO', 'co', 'la'], stressIndex: 0 }
 ]
 
 // Sterren beloning

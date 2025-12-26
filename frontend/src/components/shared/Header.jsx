@@ -1,6 +1,6 @@
 import { Rocket, Star, Settings } from './Icons'
 
-export const Header = ({ stars, profile, onSettingsClick, onLogoClick }) => {
+export const Header = ({ stars, streak, profile, onSettingsClick, onLogoClick }) => {
   return (
     <header className="p-4 flex justify-between items-center border-b border-black/5 bg-white/10 backdrop-blur-sm sticky top-0 z-50">
       <div 
@@ -23,6 +23,13 @@ export const Header = ({ stars, profile, onSettingsClick, onLogoClick }) => {
           </span>
         )}
         
+        {streak > 0 && (
+          <div className="flex items-center gap-1 bg-orange-400/10 px-3 py-2 rounded-full border border-orange-400/50" title="Leesreeks">
+            <span className="text-lg">🔥</span>
+            <span className="font-bold">{streak}</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 bg-yellow-400/10 px-4 py-2 rounded-full border border-yellow-400/50">
           <Star className="text-yellow-500 fill-yellow-500 animate-pulse" size={20} />
           <span className="font-bold text-lg">{stars}</span>

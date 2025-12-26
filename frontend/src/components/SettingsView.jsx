@@ -17,7 +17,7 @@ const INTEREST_OPTIONS = [
   { id: 'piraten', label: 'Piraten', icon: '🏴‍☠️' }
 ]
 
-export const SettingsView = ({ onBack, profile }) => {
+export const SettingsView = ({ onBack, profile, achievements = [], allAchievements = {} }) => {
   const { signOut, updateProfile } = useAuth()
   const {
     settings,
@@ -78,6 +78,33 @@ export const SettingsView = ({ onBack, profile }) => {
             </div>
             <div className="text-4xl">👨‍🚀</div>
           </div>
+        </div>
+
+        {/* Badges */}
+        <div className="bg-white/60 p-6 rounded-3xl border border-white/50 shadow-sm">
+          <h3 className="font-bold mb-4 flex items-center gap-2">
+            🏅 Mijn Badges
+          </h3>
+          {Object.keys(allAchievements).length > 0 ? (
+            <div className="grid grid-cols-5 gap-3">
+              {Object.values(allAchievements).map(badge => {
+                const isEarned = achievements.includes(badge.id)
+                return (
+                  <div
+                    key={badge.id}
+                    className={"flex flex-col items-center p-2 rounded-xl transition " + 
+                      (isEarned ? "bg-yellow-50" : "opacity-30 grayscale")}
+                    title={badge.description}
+                  >
+                    <span className="text-2xl">{badge.icon}</span>
+                    <span className="text-xs text-center mt-1 font-bold">{badge.name.split(' ')[0]}</span>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-center opacity-60">Speel spellen om badges te verdienen!</p>
+          )}
         </div>
 
         {/* Interesses */}

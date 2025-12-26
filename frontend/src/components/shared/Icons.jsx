@@ -142,3 +142,9 @@ export const Dice = (props) => (
     <circle cx="12" cy="12" r="1.5" fill="currentColor" />
   </Icon>
 )
+
+export const Check = (props) => (
+  <Icon {...props}>
+    <polyline points="20 6 9 17 4 12" />
+  </Icon>
+)

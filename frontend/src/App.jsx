@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useProgress } from './hooks/useProgress'
 import { useSettings } from './hooks/useSettings'
+import { useStreak } from './hooks/useStreak'
+import { useAchievements, ACHIEVEMENTS } from './hooks/useAchievements'
+import { supabase } from './supabaseClient'
+import { AchievementNotification } from './components/shared/AchievementNotification'
 
 // Auth components
 import { Login } from './components/Auth/Login'
@@ -124,9 +128,30 @@ function App() {
     loading: progressLoading 
   } = useProgress()
   const { getThemeClasses, getFontClasses } = useSettings()
+  const { streak, recordActivity } = useStreak(user?.id)
+  const { earned: earnedAchievements, newAchievement, checkStats, dismissNotification, allAchievements } = useAchievements(user?.id)
 
   const [currentView, setCurrentView] = useState('dashboard')
   const [generatedStory, setGeneratedStory] = useState(null)
+
+  // Sla gegenereerd verhaal op in database
+  const saveGeneratedStory = async (story) => {
+    if (!user?.id || !story) return
+    try {
+      await supabase.from('generated_stories').insert({
+        user_id: user.id,
+        title: story.title,
+        content: story.content,
+        fact: story.fact,
+        hero: story.hero,
+        place: story.place,
+        item: story.item
+      })
+      console.log('Verhaal opgeslagen')
+    } catch (err) {
+      console.error('Verhaal opslaan mislukt:', err)
+    }
+  }
 
   // Loading state
   if (authLoading || progressLoading) {
@@ -150,17 +175,34 @@ function App() {
     return <ProfileSetup onComplete={() => window.location.reload()} />
   }
 
-  // Props voor games
+  // Props voor games - addStars met streak en achievement tracking
+  const addStarsWithStreak = (amount) => {
+    addStars(amount)
+    recordActivity()
+    // Check achievements na activiteit
+    setTimeout(() => {
+      checkStats({
+        stars: stars + amount,
+        streak: streak.current,
+        storiesRead: (completedLevels.stories || []).length,
+        gamesPlayed: (completedLevels.code_kraken || []).length + (completedLevels.troll || []).length,
+        storiesMade: 0,
+        perfectQuizzes: 0
+      })
+    }, 100)
+  }
+
   const gameProps = {
     speak,
-    addStars,
+    addStars: addStarsWithStreak,
     onBack: () => setCurrentView('dashboard')
   }
 
   return (
     <div className={`min-h-screen transition-colors duration-300 ${getThemeClasses()} ${getFontClasses()}`}>
       <Header 
-        stars={stars} 
+        stars={stars}
+        streak={streak.current}
         profile={profile}
         onSettingsClick={() => setCurrentView('settings')}
         onLogoClick={() => setCurrentView('dashboard')}
@@ -205,7 +247,8 @@ function App() {
             {...gameProps}
             unlockedItems={unlockedItems}
             gradeLevel={profile?.grade || 3}
-            onStoryGenerated={(story) => {
+            onStoryGenerated={async (story) => {
+              await saveGeneratedStory(story)
               setGeneratedStory(story)
               setCurrentView('generated-reader')
             }}
@@ -233,6 +276,8 @@ function App() {
           <SettingsView
             onBack={() => setCurrentView('dashboard')}
             profile={profile}
+            achievements={earnedAchievements}
+            allAchievements={allAchievements}
           />
         )}
 
@@ -254,6 +299,12 @@ function App() {
 
       {/* Bug reporter voor TTS problemen */}
       <BugReporter />
+
+      {/* Achievement notification */}
+      <AchievementNotification 
+        achievement={newAchievement} 
+        onDismiss={dismissNotification} 
+      />
     </div>
   )
 }

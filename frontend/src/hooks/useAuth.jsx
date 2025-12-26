@@ -51,42 +51,50 @@ export const AuthProvider = ({ children }) => {
       return
     }
 
-    // Check huidige sessie met timeout (10 sec voor cold starts)
-    const sessionPromise = supabase.auth.getSession()
-    const timeoutPromise = new Promise((resolve) =>
-      setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 10000)
-    )
+    // STAP 1: Direct laden met cache (instant)
+    const cached = getCachedProfile()
+    if (cached) {
+      console.log('Using cached profile for instant load')
+      setUser({ id: cached.id })
+      setProfile(cached)
+      setLoading(false)
+      // Sync op achtergrond
+      syncWithSupabase()
+      return
+    }
 
-    Promise.race([sessionPromise, timeoutPromise]).then((result) => {
-      if (result.timedOut) {
-        console.warn('Session check timeout - using cached profile')
-        // Probeer cached profiel te gebruiken
-        const cached = getCachedProfile()
-        if (cached) {
-          setUser({ id: cached.id })
-          setProfile(cached)
+    // STAP 2: Geen cache - moet wachten op Supabase
+    console.log('No cache, waiting for Supabase...')
+    syncWithSupabase()
+
+    async function syncWithSupabase() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (session?.user) {
+          setUser(session.user)
+          await fetchProfile(session.user.id)
+        } else {
+          setUser(null)
+          setProfile(null)
+          setLoading(false)
         }
-        setLoading(false)
-        return
-      }
-
-      const session = result.data?.session
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
-      } else {
+      } catch (e) {
+        console.error('Supabase sync failed:', e)
         setLoading(false)
       }
-    })
+    }
 
     // Luister naar auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event)
         setUser(session?.user ?? null)
         if (session?.user) {
           await fetchProfile(session.user.id)
         } else {
           setProfile(null)
+          setCachedProfile(null)
         }
         setLoading(false)
       }

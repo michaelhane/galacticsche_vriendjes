@@ -1,15 +1,50 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, Sparkles } from '../shared/Icons'
+import { supabase } from '../../supabaseClient'
+import { useAuth } from '../../hooks/useAuth'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
 export const StoryMaker = ({ onBack, speak, unlockedItems, gradeLevel, onStoryGenerated }) => {
+  const { user } = useAuth()
   const [step, setStep] = useState(1)
+  const [savedStories, setSavedStories] = useState([])
+  const [loadingStories, setLoadingStories] = useState(true)
+
+  // Laad opgeslagen verhalen
+  useEffect(() => {
+    const loadSavedStories = async () => {
+      if (!user?.id) {
+        setLoadingStories(false)
+        return
+      }
+      try {
+        const { data, error } = await supabase
+          .from('generated_stories')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10)
+
+        if (!error && data) {
+          setSavedStories(data)
+        }
+      } catch (err) {
+        console.error('Verhalen laden mislukt:', err)
+      }
+      setLoadingStories(false)
+    }
+    loadSavedStories()
+  }, [user?.id])
   const [hero, setHero] = useState('')
   const [place, setPlace] = useState('')
   const [item, setItem] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [rolling, setRolling] = useState(false)
+
+  // Check of gebruiker de ToVer-Dobbelsteen heeft
+  const hasDice = unlockedItems?.includes('randomizer')
 
   const heroes = ['👦 Jongen', '👧 Meisje', '🐕 Hond', '🐱 Kat', '🤖 Robot', '👽 Alien']
   const places = ['🌙 Maan', '🏰 Kasteel', '🌲 Bos', '🏖️ Strand', '🚀 Ruimte', '🎪 Circus']
@@ -43,6 +78,25 @@ export const StoryMaker = ({ onBack, speak, unlockedItems, gradeLevel, onStoryGe
     setLoading(false)
   }
 
+  // Dobbel een willekeurige keuze
+  const rollDice = (options, onSelect) => {
+    setRolling(true)
+    speak('Dobbelen!')
+    let count = 0
+    const interval = setInterval(() => {
+      const randomOption = options[Math.floor(Math.random() * options.length)]
+      onSelect(randomOption)
+      count++
+      if (count >= 10) {
+        clearInterval(interval)
+        setRolling(false)
+        const finalOption = options[Math.floor(Math.random() * options.length)]
+        onSelect(finalOption)
+        speak(finalOption.split(' ')[1])
+      }
+    }, 100)
+  }
+
   const ChoiceGrid = ({ options, selected, onSelect, label }) => (
     <div>
       <p className="text-lg font-bold mb-4 text-center">{label}</p>
@@ -65,6 +119,19 @@ export const StoryMaker = ({ onBack, speak, unlockedItems, gradeLevel, onStoryGe
             {option}
           </button>
         ))}
+        {hasDice && (
+          <button
+            onClick={() => rollDice(options, onSelect)}
+            disabled={rolling}
+            className={`
+              p-4 rounded-2xl text-2xl transition transform hover:scale-105
+              bg-gradient-to-br from-yellow-400 to-orange-500 text-white border-2 border-yellow-300
+              ${rolling ? 'animate-spin' : 'hover:from-yellow-500 hover:to-orange-600'}
+            `}
+          >
+            🎲 Dobbel!
+          </button>
+        )}
       </div>
     </div>
   )
@@ -77,6 +144,25 @@ export const StoryMaker = ({ onBack, speak, unlockedItems, gradeLevel, onStoryGe
         </button>
         <h2 className="text-2xl font-bold">Verhalen Fabriek</h2>
       </div>
+
+      {/* Opgeslagen verhalen */}
+      {savedStories.length > 0 && (
+        <div className="bg-white/80 rounded-2xl p-4 mb-6">
+          <h3 className="font-bold text-lg mb-3">Mijn Verhalen</h3>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {savedStories.map(story => (
+              <button
+                key={story.id}
+                onClick={() => onStoryGenerated(story)}
+                className="flex-shrink-0 bg-gradient-to-br from-purple-100 to-pink-100 p-3 rounded-xl hover:shadow-md transition min-w-[120px]"
+              >
+                <div className="text-2xl mb-1">{story.hero?.includes('Hond') ? '🐕' : story.hero?.includes('Kat') ? '🐱' : story.hero?.includes('Robot') ? '🤖' : '👦'}</div>
+                <div className="text-sm font-medium truncate">{story.title}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl">
         {/* Progress indicator */}
