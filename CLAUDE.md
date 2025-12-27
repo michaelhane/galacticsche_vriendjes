@@ -133,6 +133,7 @@ galactische-vrienden/
 - [ ] PWA icons genereren (192x192, 512x512)
 - [ ] Spaced repetition integreren in games
 - [ ] localStorage sync in useProgress
+- [ ] **Woord-leren feature**: Tik op onbekend woord in verhaal → hoor uitspraak, zie lettergrepen, krijg uitleg, sla op voor later oefenen. Eventueel: woordenboek verzamelen, memory/quiz spelletje, "Woord-detective" badge
 
 ## Commando's
 
