@@ -130,10 +130,10 @@ galactische-vrienden/
 - [x] PWA manifest + Service Worker
 
 ### Nog Te Doen
-- [ ] PWA icons genereren (192x192, 512x512)
-- [ ] Spaced repetition integreren in games
-- [ ] localStorage sync in useProgress
-- [ ] **Woord-leren feature**: Tik op onbekend woord in verhaal → hoor uitspraak, zie lettergrepen, krijg uitleg, sla op voor later oefenen. Eventueel: woordenboek verzamelen, memory/quiz spelletje, "Woord-detective" badge
+- [x] PWA icons genereren (192x192, 512x512) ✅
+- [x] Spaced repetition integreren in games ✅ (TrollGame + SyllableGame)
+- [x] localStorage sync in useProgress ✅
+- [x] **Woord-leren feature** ✅: Klik op woord in verhaal → hoor uitspraak, zie lettergrepen, krijg AI uitleg, sla op in woordenbank
 
 ## Commando's
 

@@ -370,6 +370,56 @@ ${readingDescription}`;
   }
 });
 
+// Claude API - Word Explanation for Woord Ontdekker
+app.post('/api/explain-word', async (req, res) => {
+  const { word, gradeLevel = 3 } = req.body;
+
+  if (!word) {
+    return res.status(400).json({ error: 'Woord is verplicht' });
+  }
+
+  const systemPrompt = `Je bent een vriendelijke Nederlandse woordenboek voor kinderen in groep ${gradeLevel}.
+
+Leg dit woord uit op een eenvoudige, leuke manier:
+
+REGELS:
+1. Gebruik maximaal 2 korte zinnen
+2. Gebruik alleen woorden die een kind in groep ${gradeLevel} kent
+3. Geef een voorbeeld zin met het woord
+4. Wees positief en bemoedigend
+
+Antwoord met ALLEEN ruwe JSON. GEEN markdown.
+
+Format:
+{"simple":"Korte, kindvriendelijke uitleg (max 2 zinnen)","example":"Een voorbeeldzin met het woord."}`;
+
+  const userPrompt = `Leg het woord "${word}" uit voor een kind in groep ${gradeLevel}.`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 256,
+      temperature: 0.5,
+      system: systemPrompt,
+      messages: [
+        { role: 'user', content: userPrompt }
+      ]
+    });
+
+    let text = message.content[0].text;
+    text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    text = text.trim();
+
+    const explanation = JSON.parse(text);
+
+    console.log('✅ Word explanation for:', word);
+    res.json(explanation);
+  } catch (error) {
+    console.error('Error explaining word:', error);
+    res.status(500).json({ error: 'Er ging iets mis bij het uitleggen' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Galactische Vrienden Backend draait op port ${PORT}`);
 });

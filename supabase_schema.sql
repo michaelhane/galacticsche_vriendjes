@@ -153,6 +153,38 @@ CREATE INDEX IF NOT EXISTS idx_user_items_user
   ON public.user_items(user_id);
 
 -- ============================================
+-- 5. WORD ATTEMPTS TABEL
+-- Spaced repetition tracking voor woord pogingen
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.word_attempts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  word TEXT NOT NULL,
+  correct BOOLEAN NOT NULL,
+  game_type TEXT NOT NULL,  -- 'code_kraken', 'troll', 'jumper'
+  time_taken_ms INTEGER,
+  timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS voor word_attempts
+ALTER TABLE public.word_attempts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own word attempts"
+  ON public.word_attempts FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own word attempts"
+  ON public.word_attempts FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Index voor snelle queries
+CREATE INDEX IF NOT EXISTS idx_word_attempts_user_word
+  ON public.word_attempts(user_id, word);
+
+CREATE INDEX IF NOT EXISTS idx_word_attempts_user_timestamp
+  ON public.word_attempts(user_id, timestamp DESC);
+
+-- ============================================
 -- DONE! ✅
 -- ============================================
 -- Je database is nu klaar voor Galactische Vrienden!

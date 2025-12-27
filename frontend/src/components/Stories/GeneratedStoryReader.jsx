@@ -1,7 +1,149 @@
 import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, Volume2, Play, Pause, ArrowRight, Check } from '../shared/Icons'
+import { ArrowLeft, Volume2, Play, Pause, ArrowRight, Check, X } from '../shared/Icons'
+import { supabase } from '../../supabaseClient'
+import { useAuth } from '../../hooks/useAuth'
 
 const API_URL = import.meta.env.VITE_API_URL || ''
+
+// Simpele lettergreep splitter voor Nederlands
+const splitIntoSyllables = (word) => {
+  // Verwijder leestekens
+  const clean = word.toLowerCase().replace(/[.,!?;:'"]/g, '')
+  if (clean.length <= 2) return [clean]
+
+  // Nederlandse klinkergroepen
+  const vowels = 'aeiouàáâãäåèéêëìíîïòóôõöùúûü'
+  const result = []
+  let current = ''
+
+  for (let i = 0; i < clean.length; i++) {
+    current += clean[i]
+    const isVowel = vowels.includes(clean[i])
+    const nextIsConsonant = i + 1 < clean.length && !vowels.includes(clean[i + 1])
+    const next2IsVowel = i + 2 < clean.length && vowels.includes(clean[i + 2])
+
+    // Split na klinker + medeklinker als volgende letter ook klinker is
+    if (isVowel && nextIsConsonant && next2IsVowel && current.length >= 2) {
+      result.push(current)
+      current = ''
+    }
+  }
+
+  if (current) result.push(current)
+  return result.length ? result : [clean]
+}
+
+// Woord Popup Component
+const WordPopup = ({ word, onClose, speak, onSave, loading, saved }) => {
+  const syllables = splitIntoSyllables(word)
+  const [explaining, setExplaining] = useState(false)
+  const [explanation, setExplanation] = useState(null)
+
+  const getExplanation = async () => {
+    setExplaining(true)
+    try {
+      const response = await fetch(`${API_URL}/api/explain-word`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word, gradeLevel: 3 })
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setExplanation(data)
+      }
+    } catch (err) {
+      console.error('Uitleg laden mislukt:', err)
+      setExplanation({ simple: 'Uitleg kon niet worden geladen.' })
+    }
+    setExplaining(false)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-purple-800">Woord Ontdekker</h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Woord groot */}
+        <div className="text-center mb-6">
+          <p className="text-4xl font-bold text-purple-900 mb-2">{word}</p>
+          <button
+            onClick={() => speak(word)}
+            className="bg-purple-100 hover:bg-purple-200 text-purple-800 px-4 py-2 rounded-xl font-bold flex items-center gap-2 mx-auto transition"
+          >
+            <Volume2 size={20} /> Luister
+          </button>
+        </div>
+
+        {/* Lettergrepen */}
+        <div className="bg-blue-50 rounded-xl p-4 mb-4">
+          <p className="text-sm font-bold text-blue-800 mb-2">Lettergrepen:</p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {syllables.map((syl, i) => (
+              <button
+                key={i}
+                onClick={() => speak(syl)}
+                className="bg-blue-200 hover:bg-blue-300 px-4 py-2 rounded-lg font-bold text-blue-900 transition"
+              >
+                {syl}
+              </button>
+            ))}
+          </div>
+          <p className="text-center mt-2 text-sm text-blue-600">
+            {syllables.length} lettergreep{syllables.length > 1 ? 's' : ''}
+          </p>
+        </div>
+
+        {/* Uitleg */}
+        {!explanation && !explaining && (
+          <button
+            onClick={getExplanation}
+            className="w-full bg-yellow-100 hover:bg-yellow-200 text-yellow-800 py-3 rounded-xl font-bold mb-4 transition"
+          >
+            💡 Wat betekent dit woord?
+          </button>
+        )}
+
+        {explaining && (
+          <div className="bg-yellow-50 rounded-xl p-4 mb-4 text-center">
+            <span className="animate-pulse">🤔 Even denken...</span>
+          </div>
+        )}
+
+        {explanation && (
+          <div className="bg-yellow-50 rounded-xl p-4 mb-4">
+            <p className="text-sm font-bold text-yellow-800 mb-1">Betekenis:</p>
+            <p className="text-yellow-900">{explanation.simple}</p>
+            {explanation.example && (
+              <p className="mt-2 text-sm italic text-yellow-700">"{explanation.example}"</p>
+            )}
+          </div>
+        )}
+
+        {/* Opslaan knop */}
+        <button
+          onClick={onSave}
+          disabled={saved || loading}
+          className={`w-full py-3 rounded-xl font-bold transition ${
+            saved
+              ? 'bg-green-100 text-green-800'
+              : 'bg-gradient-to-r from-green-500 to-teal-500 text-white hover:from-green-600 hover:to-teal-600'
+          }`}
+        >
+          {loading ? '⏳ Opslaan...' : saved ? '✓ Opgeslagen!' : '📚 Bewaar in mijn woordenbank'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // Reading Ruler Component - beweegt mee met de zin
 const ReadingRuler = ({ top, height, visible }) => {
@@ -29,6 +171,7 @@ const ReadingRuler = ({ top, height, visible }) => {
 }
 
 export const GeneratedStoryReader = ({ story, onBack, speak, addStars }) => {
+  const { user } = useAuth()
   const [currentSentence, setCurrentSentence] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [showRuler, setShowRuler] = useState(true)
@@ -36,6 +179,10 @@ export const GeneratedStoryReader = ({ story, onBack, speak, addStars }) => {
   const [rulerPosition, setRulerPosition] = useState({ top: 0, height: 40 })
   const [starsAwarded, setStarsAwarded] = useState(false)
   const [showQuiz, setShowQuiz] = useState(false)
+  // Woord-leren feature
+  const [selectedWord, setSelectedWord] = useState(null)
+  const [savingWord, setSavingWord] = useState(false)
+  const [savedWords, setSavedWords] = useState([])
   const [quiz, setQuiz] = useState(null)
   const [loadingQuiz, setLoadingQuiz] = useState(false)
   const [currentQuestion, setCurrentQuestion] = useState(0)
@@ -106,13 +253,72 @@ export const GeneratedStoryReader = ({ story, onBack, speak, addStars }) => {
   const handleSentenceClick = (index) => {
     setCurrentSentence(index)
     setIsPlaying(false)
-    speak(sentences[index])
+    // Niet automatisch voorlezen - kind leest zelf
+    // speak(sentences[index])
+  }
+
+  // Woord klik handler
+  const handleWordClick = (word, event) => {
+    event.stopPropagation() // Voorkom dat zin ook wordt aangeklikt
+    const cleanWord = word.replace(/[.,!?;:'"]/g, '').toLowerCase()
+    if (cleanWord.length >= 2) {
+      setSelectedWord(cleanWord)
+      speak(cleanWord)
+    }
+  }
+
+  // Woord opslaan in woordenbank
+  const saveWordToBank = async () => {
+    if (!selectedWord || !user?.id) return
+    setSavingWord(true)
+    try {
+      // Sla op in Supabase
+      await supabase.from('word_bank').upsert({
+        user_id: user.id,
+        word: selectedWord,
+        syllables: splitIntoSyllables(selectedWord),
+        source: 'story',
+        story_title: story?.title
+      }, { onConflict: 'user_id,word' })
+      setSavedWords(prev => [...prev, selectedWord])
+    } catch (err) {
+      console.error('Woord opslaan mislukt:', err)
+      // Fallback: sla lokaal op
+      const localBank = JSON.parse(localStorage.getItem('galactische_word_bank') || '[]')
+      if (!localBank.includes(selectedWord)) {
+        localBank.push(selectedWord)
+        localStorage.setItem('galactische_word_bank', JSON.stringify(localBank))
+      }
+      setSavedWords(prev => [...prev, selectedWord])
+    }
+    setSavingWord(false)
+  }
+
+  // Render zin met klikbare woorden
+  const renderSentenceWithClickableWords = (sentence, index) => {
+    const words = sentence.split(/(\s+)/)
+    return words.map((word, wordIndex) => {
+      // Als het whitespace is, render gewoon
+      if (/^\s+$/.test(word)) {
+        return <span key={wordIndex}>{word}</span>
+      }
+      // Anders maak het klikbaar
+      return (
+        <span
+          key={wordIndex}
+          onClick={(e) => handleWordClick(word, e)}
+          className="hover:bg-purple-100 hover:rounded px-0.5 cursor-pointer transition-colors"
+        >
+          {word}
+        </span>
+      )
+    })
   }
 
   const handleNext = () => {
     if (currentSentence < sentences.length - 1) {
       setCurrentSentence(prev => prev + 1)
-      speak(sentences[currentSentence + 1])
+      // Niet automatisch voorlezen - kind leest zelf
     } else {
       handleComplete()
     }
@@ -121,7 +327,7 @@ export const GeneratedStoryReader = ({ story, onBack, speak, addStars }) => {
   const handlePrevious = () => {
     if (currentSentence > 0) {
       setCurrentSentence(prev => prev - 1)
-      speak(sentences[currentSentence - 1])
+      // Niet automatisch voorlezen - kind leest zelf
     }
   }
 
@@ -523,7 +729,7 @@ export const GeneratedStoryReader = ({ story, onBack, speak, addStars }) => {
                 }
               `}
             >
-              {sentence}
+              {renderSentenceWithClickableWords(sentence, index)}
             </p>
           ))}
         </div>
@@ -590,8 +796,20 @@ export const GeneratedStoryReader = ({ story, onBack, speak, addStars }) => {
 
       {/* Tip */}
       <p className="mt-4 text-center opacity-50 text-sm">
-        💡 Klik op een zin om daar te beginnen • Druk ▶ voor automatisch voorlezen
+        💡 Klik op een <strong>woord</strong> om het te leren • Klik op een zin om daar te beginnen
       </p>
+
+      {/* Woord Popup */}
+      {selectedWord && (
+        <WordPopup
+          word={selectedWord}
+          onClose={() => setSelectedWord(null)}
+          speak={speak}
+          onSave={saveWordToBank}
+          loading={savingWord}
+          saved={savedWords.includes(selectedWord)}
+        />
+      )}
     </div>
   )
 }

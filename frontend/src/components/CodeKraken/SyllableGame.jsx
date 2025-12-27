@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Volume2, Info } from '../shared/Icons'
 import { STARS_PER_WORD } from '../../data/codeKrakenLevels'
+import { recordAttempt } from '../../services/spacedRepetition'
+import { useAuth } from '../../hooks/useAuth'
 
 export const SyllableGame = ({ levelData, onBack, addStars, speak, onLevelComplete }) => {
+  const { user } = useAuth()
   const [showIntro, setShowIntro] = useState(true)
   const [currentWordIndex, setCurrentWordIndex] = useState(0)
   const [selectedParts, setSelectedParts] = useState([])
   const [scrambledParts, setScrambledParts] = useState([])
   const [completed, setCompleted] = useState(false)
   const [isWrong, setIsWrong] = useState(false)
+  const attemptStartRef = useRef(null)
 
   // Scramble parts wanneer woord verandert
   useEffect(() => {
@@ -18,6 +22,7 @@ export const SyllableGame = ({ levelData, onBack, addStars, speak, onLevelComple
       setScrambledParts(parts)
       setSelectedParts([])
       setIsWrong(false)
+      attemptStartRef.current = Date.now() // Start tijd tracking
     }
   }, [currentWordIndex, completed, levelData])
 
@@ -37,7 +42,12 @@ export const SyllableGame = ({ levelData, onBack, addStars, speak, onLevelComple
     const currentBuilt = newSelection.map(p => p.t).join('')
 
     if (currentBuilt === targetWord) {
-      // Correct!
+      // Correct! Registreer succesvolle poging
+      const timeTaken = attemptStartRef.current ? Date.now() - attemptStartRef.current : null
+      if (user?.id) {
+        recordAttempt(user.id, currentWord.word.replace(/-/g, ''), true, 'code_kraken', timeTaken)
+      }
+
       setTimeout(() => {
         speak(`Super! ${currentWord.word.replace(/-/g, '')}`)
         addStars(STARS_PER_WORD)
@@ -50,7 +60,11 @@ export const SyllableGame = ({ levelData, onBack, addStars, speak, onLevelComple
         }
       }, 1000)
     } else if (newSelection.length === currentWord.parts.length) {
-      // Alle delen geselecteerd maar verkeerd
+      // Alle delen geselecteerd maar verkeerd - registreer foute poging
+      const timeTaken = attemptStartRef.current ? Date.now() - attemptStartRef.current : null
+      if (user?.id) {
+        recordAttempt(user.id, currentWord.word.replace(/-/g, ''), false, 'code_kraken', timeTaken)
+      }
       setIsWrong(true)
     }
   }
