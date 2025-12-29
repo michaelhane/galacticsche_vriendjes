@@ -141,13 +141,34 @@ const ExplosionParticles = () => {
 }
 
 // SVG Troll component - van originele HTML, wordt groter als je ingedrukt houdt
-const Troll = ({ children, inflation, isExploding, showFart, onStartHold, onEndHold }) => {
+const Troll = ({ children, inflation, isExploding, showFart, onStartHold, onEndHold, onReset }) => {
   const scale = 1 + (inflation / 100) * 0.8
 
   // Kleur verandert naarmate de trol opblaast
   const bodyColor = inflation > 80 ? '#ef4444' : inflation > 50 ? '#f97316' : '#84cc16'
   const bellyColor = inflation > 80 ? '#fca5a5' : inflation > 50 ? '#fdba74' : '#bef264'
   const earColor = inflation > 80 ? '#dc2626' : inflation > 50 ? '#ea580c' : '#65a30d'
+
+  // Touch handlers met betere context menu preventie
+  const handleTouchStart = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onStartHold()
+  }
+
+  const handleTouchEnd = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onEndHold()
+  }
+
+  // Context menu handler - reset alles
+  const handleContextMenu = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onReset() // Reset alle state
+    return false
+  }
 
   return (
     <div className="relative select-none flex flex-col items-center">
@@ -163,15 +184,22 @@ const Troll = ({ children, inflation, isExploding, showFart, onStartHold, onEndH
         onMouseDown={onStartHold}
         onMouseUp={onEndHold}
         onMouseLeave={onEndHold}
-        onTouchStart={(e) => { e.preventDefault(); onStartHold(); }}
-        onTouchEnd={(e) => { e.preventDefault(); onEndHold(); }}
-        onContextMenu={(e) => e.preventDefault()}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onContextMenu={handleContextMenu}
         className={`
           relative cursor-pointer transition-transform duration-100
           ${isExploding ? 'animate-explode-dramatic' : ''}
           ${inflation > 80 ? 'animate-vibrate' : ''}
         `}
-        style={{ transform: isExploding ? undefined : `scale(${scale})` }}
+        style={{
+          transform: isExploding ? undefined : `scale(${scale})`,
+          touchAction: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none'
+        }}
       >
         <svg viewBox="0 0 100 120" className="w-28 h-32">
           {/* Oren */}
@@ -343,6 +371,13 @@ export const TrollGame = ({ onBack, speak, addStars, completeLevel }) => {
     setHeldIndex(null)
   }
 
+  // Reset alles - voor als context menu opent
+  const handleReset = () => {
+    setHeldIndex(null)
+    setInflations({})
+    setFartingIndex(null)
+  }
+
   // Ga naar vorig woord
   const goToPreviousWord = () => {
     if (currentIndex > 0) setCurrentIndex(c => c - 1)
@@ -429,7 +464,7 @@ export const TrollGame = ({ onBack, speak, addStars, completeLevel }) => {
         </p>
 
         <button
-          onClick={() => speak("Lopen. Je zegt LOOO-pen. De nadruk ligt op LO.")}
+          onClick={() => speak("Lopen. Je zegt Looo pen. De nadruk ligt op lo.")}
           className="bg-purple-100 hover:bg-purple-200 text-purple-900 font-bold py-3 px-6 rounded-xl mb-8 flex items-center gap-2 mx-auto transition"
         >
           <Volume2 size={20} /> Voorbeeld: LO-pen
@@ -538,6 +573,7 @@ export const TrollGame = ({ onBack, speak, addStars, completeLevel }) => {
             showFart={fartingIndex === i}
             onStartHold={() => handleStartHold(i)}
             onEndHold={handleEndHold}
+            onReset={handleReset}
           >
             {part}
           </Troll>

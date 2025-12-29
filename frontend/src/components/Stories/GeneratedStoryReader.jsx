@@ -712,31 +712,54 @@ export const GeneratedStoryReader = ({ story, onBack, speak, addStars }) => {
           visible={showRuler}
         />
 
-        <div className="space-y-6 relative z-10">
+        <div className="relative z-10">
           {sentences.map((sentence, index) => (
-            <p
+            <div
               key={index}
               ref={el => sentenceRefs.current[index] = el}
               onClick={() => handleSentenceClick(index)}
-              className={`
-                text-2xl md:text-3xl leading-relaxed cursor-pointer
-                transition-all duration-300 p-2 rounded-xl
+              className="flex items-start gap-4 mb-6 cursor-pointer"
+            >
+              {/* Zin nummer */}
+              <div
+                className={`
+                  flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-base font-bold mt-1
+                  ${index === currentSentence
+                    ? 'bg-purple-500 text-white shadow-lg ring-4 ring-purple-200'
+                    : index < currentSentence
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-200 text-gray-500'
+                  }
+                `}
+              >
+                {index < currentSentence ? '✓' : index + 1}
+              </div>
+              {/* Zin tekst */}
+              <p className={`
+                text-2xl md:text-3xl leading-relaxed flex-1 py-1
                 ${index === currentSentence
-                  ? 'text-purple-900 font-bold scale-105'
+                  ? 'text-purple-900 font-bold'
                   : index < currentSentence
-                    ? 'text-gray-400'
+                    ? 'text-gray-400 line-through decoration-2'
                     : 'text-gray-600 hover:text-gray-800'
                 }
-              `}
-            >
-              {renderSentenceWithClickableWords(sentence, index)}
-            </p>
+              `}>
+                {renderSentenceWithClickableWords(sentence, index)}
+              </p>
+            </div>
           ))}
         </div>
       </div>
 
+      {/* Progress indicator */}
+      <div className="mt-4 flex justify-center">
+        <span className="bg-purple-100 text-purple-800 px-4 py-2 rounded-full font-bold text-lg">
+          Zin {currentSentence + 1} van {sentences.length}
+        </span>
+      </div>
+
       {/* Controls */}
-      <div className="mt-6 flex items-center justify-center gap-4">
+      <div className="mt-4 flex items-center justify-center gap-4">
         <button
           onClick={handlePrevious}
           disabled={currentSentence === 0}
