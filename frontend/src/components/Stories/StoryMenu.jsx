@@ -149,13 +149,13 @@ const StoryReader = ({ story, onBack, onComplete, speak }) => {
   const handleSentenceClick = (index) => {
     setCurrentSentence(index)
     setIsPlaying(false)
-    speak(story.sentences[index])
+    // Niet automatisch voorlezen - kind leest zelf
   }
 
   const handleNext = () => {
     if (currentSentence < story.sentences.length - 1) {
       setCurrentSentence(prev => prev + 1)
-      speak(story.sentences[currentSentence + 1])
+      // Niet automatisch voorlezen - kind leest zelf
     } else {
       setCompleted(true)
       onComplete()
@@ -165,7 +165,7 @@ const StoryReader = ({ story, onBack, onComplete, speak }) => {
   const handlePrevious = () => {
     if (currentSentence > 0) {
       setCurrentSentence(prev => prev - 1)
-      speak(story.sentences[currentSentence - 1])
+      // Niet automatisch voorlezen - kind leest zelf
     }
   }
 
