@@ -59,7 +59,8 @@ export const DMTPractice = ({ speak, onBack, onComplete, aviLevel, settings }) =
     const loadWords = async () => {
       let loaded
       try {
-        loaded = await getSmartWordsForPractice(user?.id, aviLevel, count)
+        const position = milestone?.snowboardPosition || 0
+        loaded = await getSmartWordsForPractice(user?.id, aviLevel, count, position)
       } catch {
         loaded = getWordsForPractice(aviLevel, count)
       }

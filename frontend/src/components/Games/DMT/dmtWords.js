@@ -128,20 +128,39 @@ export const getWordsForPractice = (aviLevel, count = 50) => {
 /**
  * Slimme woordselectie voor practice modus.
  * Gebruikt word_attempts data om langzame woorden vaker terug te laten komen.
+ * Injecteert woorden van het volgende AVI niveau naarmate het kind stijgt op de berg.
  *
- * Mix:
+ * Mix (huidig niveau):
  *   - 40% langzame woorden (>2500ms gemiddeld) - deze moet het kind oefenen
  *   - 40% nieuwe/onbekende woorden - uitbreiding
  *   - 20% snelle woorden (<1500ms) - zelfvertrouwen, af en toe herhalen
  *
+ * Niveau-injectie (op basis van snowboardPosition):
+ *   - positie 0-0.25: 0% volgend niveau
+ *   - positie 0.25-0.50: 10% volgend niveau
+ *   - positie 0.50-0.75: 20% volgend niveau
+ *   - positie 0.75-1.0: 30% volgend niveau
+ *
  * @param {string} userId - User ID voor word_attempts lookup
  * @param {string} aviLevel - AVI niveau
  * @param {number} count - Aantal woorden
+ * @param {number} snowboardPosition - Berg positie 0-1 (bepaalt hoeveel next-level woorden)
  * @returns {Promise<Array>} Gewogen, geschudde woorden
  */
-export const getSmartWordsForPractice = async (userId, aviLevel, count = 50) => {
+export const getSmartWordsForPractice = async (userId, aviLevel, count = 50, snowboardPosition = 0) => {
   const pool = loadAviWords(aviLevel)
   if (!userId || pool.length === 0) return fillToCount(pool, count)
+
+  // Bepaal hoeveel woorden van het volgende niveau ingemixed worden
+  const nextLevel = getNextLevel(aviLevel)
+  let nextLevelRatio = 0
+  if (nextLevel && snowboardPosition > 0.25) {
+    if (snowboardPosition >= 0.75) nextLevelRatio = 0.30
+    else if (snowboardPosition >= 0.50) nextLevelRatio = 0.20
+    else nextLevelRatio = 0.10
+  }
+  const nextLevelCount = Math.round(count * nextLevelRatio)
+  const currentLevelCount = count - nextLevelCount
 
   // Haal recente word_attempts op voor DMT
   let wordStats = {}
@@ -173,7 +192,7 @@ export const getSmartWordsForPractice = async (userId, aviLevel, count = 50) => 
     return fillToCount(pool, count)
   }
 
-  // Categoriseer woorden
+  // Categoriseer woorden uit huidig niveau
   const slow = []    // >2500ms gemiddeld - moet oefenen
   const medium = []  // 1500-2500ms - normaal
   const fast = []    // <1500ms - beheerst
@@ -192,16 +211,14 @@ export const getSmartWordsForPractice = async (userId, aviLevel, count = 50) => 
     }
   }
 
-  // Bepaal aantallen per categorie
-  const slowCount = Math.round(count * 0.4)
-  const fastCount = Math.round(count * 0.2)
-  const restCount = count - slowCount - fastCount
+  // Bepaal aantallen per categorie (binnen currentLevelCount)
+  const slowCount = Math.round(currentLevelCount * 0.4)
+  const fastCount = Math.round(currentLevelCount * 0.2)
 
   const result = []
 
   // 1. Langzame woorden (40%) - prioriteit
   if (slow.length > 0) {
-    // Sorteer langzaamste eerst
     slow.sort((a, b) => (wordStats[b.word]?.avgMs || 0) - (wordStats[a.word]?.avgMs || 0))
     const picked = slow.length >= slowCount ? shuffle(slow).slice(0, slowCount) : [...slow]
     result.push(...picked)
@@ -209,24 +226,37 @@ export const getSmartWordsForPractice = async (userId, aviLevel, count = 50) => 
 
   // 2. Snelle woorden (20%) - zelfvertrouwen
   if (fast.length > 0) {
-    const picked = fast.length >= fastCount ? shuffle(fast).slice(0, fastCount) : shuffle(fast).slice(0, Math.min(fastCount, fast.length))
+    const picked = shuffle(fast).slice(0, Math.min(fastCount, fast.length))
     result.push(...picked)
   }
 
   // 3. Vul aan met nieuwe + medium woorden
-  const remaining = count - result.length
-  const fillPool = shuffle([...unseen, ...medium])
-  // Als er niet genoeg zijn, voeg ook extra slow/fast toe
-  const allRemaining = fillPool.length >= remaining
-    ? fillPool.slice(0, remaining)
-    : [...fillPool, ...shuffle([...slow, ...fast]).filter(w => !result.includes(w))].slice(0, remaining)
-  result.push(...allRemaining)
+  const remaining = currentLevelCount - result.length
+  if (remaining > 0) {
+    const fillPool = shuffle([...unseen, ...medium])
+    const allRemaining = fillPool.length >= remaining
+      ? fillPool.slice(0, remaining)
+      : [...fillPool, ...shuffle([...slow, ...fast]).filter(w => !result.includes(w))].slice(0, remaining)
+    result.push(...allRemaining)
+  }
 
-  // Als we nog steeds niet genoeg hebben, vul aan uit hele pool
-  if (result.length < count) {
+  // Als we nog steeds niet genoeg hebben voor huidig niveau, vul aan
+  if (result.length < currentLevelCount) {
     const usedWords = new Set(result.map(w => w.word))
     const extra = pool.filter(w => !usedWords.has(w.word))
-    result.push(...fillToCount(extra.length > 0 ? extra : pool, count - result.length))
+    result.push(...fillToCount(extra.length > 0 ? extra : pool, currentLevelCount - result.length))
+  }
+
+  // 4. Woorden van het volgende niveau injecteren (op basis van bergpositie)
+  if (nextLevelCount > 0 && nextLevel) {
+    const nextPool = loadAviWords(nextLevel)
+    if (nextPool.length > 0) {
+      // Prioriteer onbekende woorden van het volgende niveau
+      const nextUnseen = nextPool.filter(w => !wordStats[w.word])
+      const nextSeen = nextPool.filter(w => wordStats[w.word])
+      const nextPrioritized = [...shuffle(nextUnseen), ...shuffle(nextSeen)]
+      result.push(...nextPrioritized.slice(0, nextLevelCount))
+    }
   }
 
   return shuffle(result.slice(0, count))
