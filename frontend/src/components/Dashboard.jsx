@@ -43,6 +43,14 @@ export const Dashboard = ({ setView, speak, profile }) => {
       shadow: 'shadow-lime-200'
     },
     {
+      id: 'dmt',
+      title: 'Snowboard Sprint',
+      desc: 'Oefen je leessnelheid',
+      icon: '🏂',
+      color: 'from-sky-400 to-blue-600',
+      shadow: 'shadow-sky-200'
+    },
+    {
       id: 'rewards',
       title: 'Mijn Bio-Koepel',
       desc: 'Bouw je ruimtestation',

@@ -185,6 +185,67 @@ CREATE INDEX IF NOT EXISTS idx_word_attempts_user_timestamp
   ON public.word_attempts(user_id, timestamp DESC);
 
 -- ============================================
+-- 6. DMT SESSIONS & MILESTONES
+-- Snelheidslezen oefening en toets tracking
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS public.dmt_sessions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  mode TEXT NOT NULL CHECK (mode IN ('practice', 'test')),
+  avi_level TEXT NOT NULL,
+  settings JSONB DEFAULT '{}',
+  results JSONB NOT NULL,
+  is_baseline BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.dmt_sessions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own dmt sessions"
+  ON public.dmt_sessions FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own dmt sessions"
+  ON public.dmt_sessions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_dmt_sessions_user_level
+  ON public.dmt_sessions(user_id, avi_level);
+
+CREATE INDEX IF NOT EXISTS idx_dmt_sessions_user_created
+  ON public.dmt_sessions(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS public.dmt_milestones (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  avi_level TEXT NOT NULL,
+  baseline FLOAT NOT NULL,
+  current_milestone INT DEFAULT 0 CHECK (current_milestone >= 0 AND current_milestone <= 4),
+  best_score FLOAT DEFAULT 0,
+  snowboard_position FLOAT DEFAULT 0 CHECK (snowboard_position >= 0 AND snowboard_position <= 1),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, avi_level)
+);
+
+ALTER TABLE public.dmt_milestones ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own dmt milestones"
+  ON public.dmt_milestones FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert own dmt milestones"
+  ON public.dmt_milestones FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own dmt milestones"
+  ON public.dmt_milestones FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_dmt_milestones_user
+  ON public.dmt_milestones(user_id);
+
+-- ============================================
 -- DONE! ✅
 -- ============================================
 -- Je database is nu klaar voor Galactische Vrienden!

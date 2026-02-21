@@ -19,6 +19,7 @@ import { GameMenu } from './components/CodeKraken/GameMenu'
 import { TrollGame } from './components/Troll/TrollGame'
 import { JumpGame } from './components/Jumper/JumpGame'
 import { RewardShop } from './components/Shop/RewardShop'
+import { DMTMenu, DMTPractice, DMTTest, DMTResults } from './components/Games/DMT'
 import { StoryMenu } from './components/Stories/StoryMenu'
 import { StoryMaker } from './components/Stories/StoryMaker'
 import { GeneratedStoryReader } from './components/Stories/GeneratedStoryReader'
@@ -133,6 +134,13 @@ function App() {
 
   const [currentView, setCurrentView] = useState('dashboard')
   const [generatedStory, setGeneratedStory] = useState(null)
+  const [dmtState, setDmtState] = useState({
+    view: 'menu',
+    aviLevel: 'e3',
+    settings: {},
+    withParent: false,
+    results: null
+  })
 
   // Sla gegenereerd verhaal op in database
   const saveGeneratedStory = async (story) => {
@@ -256,11 +264,58 @@ function App() {
         )}
 
         {currentView === 'rewards' && (
-          <RewardShop 
+          <RewardShop
             {...gameProps}
             stars={stars}
             unlockedItems={unlockedItems}
             onPurchase={purchaseItem}
+          />
+        )}
+
+        {currentView === 'dmt' && dmtState.view === 'menu' && (
+          <DMTMenu
+            {...gameProps}
+            onStartPractice={(aviLevel, settings) => {
+              setDmtState({ view: 'practice', aviLevel, settings, withParent: false, results: null })
+            }}
+            onStartTest={(aviLevel, withParent) => {
+              setDmtState({ view: 'test', aviLevel, settings: {}, withParent, results: null })
+            }}
+            onBack={() => setCurrentView('dashboard')}
+          />
+        )}
+
+        {currentView === 'dmt' && dmtState.view === 'practice' && (
+          <DMTPractice
+            {...gameProps}
+            aviLevel={dmtState.aviLevel}
+            settings={dmtState.settings}
+            onComplete={(results) => {
+              setDmtState(prev => ({ ...prev, view: 'results', results }))
+            }}
+            onBack={() => setDmtState(prev => ({ ...prev, view: 'menu' }))}
+          />
+        )}
+
+        {currentView === 'dmt' && dmtState.view === 'test' && (
+          <DMTTest
+            {...gameProps}
+            aviLevel={dmtState.aviLevel}
+            withParent={dmtState.withParent}
+            onComplete={(results) => {
+              setDmtState(prev => ({ ...prev, view: 'results', results }))
+            }}
+            onBack={() => setDmtState(prev => ({ ...prev, view: 'menu' }))}
+          />
+        )}
+
+        {currentView === 'dmt' && dmtState.view === 'results' && (
+          <DMTResults
+            {...gameProps}
+            aviLevel={dmtState.aviLevel}
+            mode={dmtState.results?.cards ? 'test' : 'practice'}
+            results={dmtState.results}
+            onPlayAgain={() => setDmtState(prev => ({ ...prev, view: 'menu' }))}
           />
         )}
 
