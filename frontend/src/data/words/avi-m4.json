@@ -88,6 +88,15 @@
     {"word": "pteranodon", "syllables": ["pte", "ra", "no", "don"], "syllableCount": 4, "stressIndex": 2, "image": "🦖", "category": "dieren"},
     {"word": "wetenschap", "syllables": ["we", "ten", "schap"], "syllableCount": 3, "stressIndex": 0, "image": "🔬", "category": "school"},
     {"word": "experiment", "syllables": ["ex", "pe", "ri", "ment"], "syllableCount": 4, "stressIndex": 3, "image": "🧪", "category": "school"},
-    {"word": "microscoop", "syllables": ["mi", "cro", "scoop"], "syllableCount": 3, "stressIndex": 2, "image": "🔬", "category": "school"}
+    {"word": "microscoop", "syllables": ["mi", "cro", "scoop"], "syllableCount": 3, "stressIndex": 2, "image": "🔬", "category": "school"},
+    {"word": "omgeven", "syllables": ["om", "ge", "ven"], "syllableCount": 3, "stressIndex": 0, "image": "🔄", "category": "acties"},
+    {"word": "omgeving", "syllables": ["om", "ge", "ving"], "syllableCount": 3, "stressIndex": 1, "image": "🌍", "category": "natuur"},
+    {"word": "opknappen", "syllables": ["op", "knap", "pen"], "syllableCount": 3, "stressIndex": 1, "image": "🔧", "category": "acties"},
+    {"word": "afbreken", "syllables": ["af", "bre", "ken"], "syllableCount": 3, "stressIndex": 0, "image": "💥", "category": "acties"},
+    {"word": "opbouwen", "syllables": ["op", "bou", "wen"], "syllableCount": 3, "stressIndex": 0, "image": "🏗️", "category": "acties"},
+    {"word": "openslaan", "syllables": ["o", "pen", "slaan"], "syllableCount": 3, "stressIndex": 0, "image": "📖", "category": "acties"},
+    {"word": "hoofdpersoon", "syllables": ["hoofd", "per", "soon"], "syllableCount": 3, "stressIndex": 2, "image": "🦸", "category": "mensen"},
+    {"word": "meeleven", "syllables": ["mee", "le", "ven"], "syllableCount": 3, "stressIndex": 0, "image": "❤️", "category": "gevoelens"},
+    {"word": "gebaren", "syllables": ["ge", "ba", "ren"], "syllableCount": 3, "stressIndex": 1, "image": "🤲", "category": "acties"}
   ]
 }

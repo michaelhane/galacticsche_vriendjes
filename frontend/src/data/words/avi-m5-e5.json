@@ -518,6 +518,9 @@
     {"word": "zuurstof", "syllables": ["zuur", "stof"], "syllableCount": 2, "stressIndex": 0, "image": "💨", "category": "wetenschap"},
     {"word": "zwaarlijvigheid", "syllables": ["zwaar", "lij", "vig", "heid"], "syllableCount": 4, "stressIndex": 0, "image": "⚖️", "category": "gezondheid"},
     {"word": "zwembad", "syllables": ["zwem", "bad"], "syllableCount": 2, "stressIndex": 0, "image": "🏊", "category": "sport"},
-    {"word": "zwitserland", "syllables": ["zwit", "ser", "land"], "syllableCount": 3, "stressIndex": 0, "image": "🇨🇭", "category": "aardrijkskunde"}
+    {"word": "zwitserland", "syllables": ["zwit", "ser", "land"], "syllableCount": 3, "stressIndex": 0, "image": "🇨🇭", "category": "aardrijkskunde"},
+    {"word": "gebeurtenis", "syllables": ["ge", "beur", "te", "nis"], "syllableCount": 4, "stressIndex": 1, "image": "⚡", "category": "acties"},
+    {"word": "kapotmaken", "syllables": ["ka", "pot", "ma", "ken"], "syllableCount": 4, "stressIndex": 1, "image": "💥", "category": "acties"},
+    {"word": "repareren", "syllables": ["re", "pa", "re", "ren"], "syllableCount": 4, "stressIndex": 2, "image": "🔧", "category": "acties"}
   ]
 }

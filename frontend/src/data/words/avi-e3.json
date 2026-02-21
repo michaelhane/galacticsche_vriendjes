@@ -131,6 +131,18 @@
     {"word": "superheld", "syllables": ["su", "per", "held"], "syllableCount": 3, "stressIndex": 1, "image": "🦸", "category": "fantasie"},
     {"word": "dino", "syllables": ["di", "no"], "syllableCount": 2, "stressIndex": 0, "image": "🦕", "category": "dieren"},
     {"word": "monster", "syllables": ["mon", "ster"], "syllableCount": 2, "stressIndex": 0, "image": "👾", "category": "fantasie"},
-    {"word": "geestje", "syllables": ["geest", "je"], "syllableCount": 2, "stressIndex": 0, "image": "👻", "category": "fantasie"}
+    {"word": "geestje", "syllables": ["geest", "je"], "syllableCount": 2, "stressIndex": 0, "image": "👻", "category": "fantasie"},
+    {"word": "beuren", "syllables": ["beu", "ren"], "syllableCount": 2, "stressIndex": 0, "image": "💪", "category": "acties"},
+    {"word": "geven", "syllables": ["ge", "ven"], "syllableCount": 2, "stressIndex": 0, "image": "🎁", "category": "acties"},
+    {"word": "slopen", "syllables": ["slo", "pen"], "syllableCount": 2, "stressIndex": 0, "image": "💥", "category": "acties"},
+    {"word": "kapot", "syllables": ["ka", "pot"], "syllableCount": 2, "stressIndex": 1, "image": "💔", "category": "acties"},
+    {"word": "maken", "syllables": ["ma", "ken"], "syllableCount": 2, "stressIndex": 0, "image": "🔨", "category": "acties"},
+    {"word": "breken", "syllables": ["bre", "ken"], "syllableCount": 2, "stressIndex": 0, "image": "💥", "category": "acties"},
+    {"word": "geschikt", "syllables": ["ge", "schikt"], "syllableCount": 2, "stressIndex": 1, "image": "✅", "category": "acties"},
+    {"word": "persoon", "syllables": ["per", "soon"], "syllableCount": 2, "stressIndex": 1, "image": "🧑", "category": "mensen"},
+    {"word": "leven", "syllables": ["le", "ven"], "syllableCount": 2, "stressIndex": 0, "image": "🌱", "category": "natuur"},
+    {"word": "baren", "syllables": ["ba", "ren"], "syllableCount": 2, "stressIndex": 0, "image": "👶", "category": "acties"},
+    {"word": "schikken", "syllables": ["schik", "ken"], "syllableCount": 2, "stressIndex": 0, "image": "📐", "category": "acties"},
+    {"word": "sindsdien", "syllables": ["sinds", "dien"], "syllableCount": 2, "stressIndex": 0, "image": "⏰", "category": "tijd"}
   ]
 }
