@@ -79,11 +79,11 @@ export const DMTMenu = ({ speak, onBack, onStartPractice, onStartTest }) => {
         <span className="text-3xl">🏂</span>
       </div>
 
-      {/* Snowboard Scene (compact) */}
+      {/* Snowboard Scene */}
       <div className="px-4 mb-4">
         <SnowboardScene
           position={milestone?.snowboardPosition || 0}
-          compact={true}
+          compact={false}
         />
       </div>
 

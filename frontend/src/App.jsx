@@ -26,41 +26,28 @@ import { GeneratedStoryReader } from './components/Stories/GeneratedStoryReader'
 import { SettingsView } from './components/SettingsView'
 import { ParentalGate, ParentDashboard } from './components/Parent'
 
-// Test of native speech werkt (eenmalig)
-let useResponsiveVoice = false
-const testNativeSpeech = () => {
-  if (typeof window === 'undefined') return
-  // Check of voices beschikbaar zijn
-  const voices = window.speechSynthesis?.getVoices() || []
-  const hasNLVoice = voices.some(v => v.lang.includes('nl'))
-  // Op Android/Samsung werkt native TTS vaak niet goed
-  const isAndroid = /Android/i.test(navigator.userAgent)
-  const isSamsung = /Samsung/i.test(navigator.userAgent)
-  useResponsiveVoice = !hasNLVoice || isAndroid || isSamsung
-}
-// Test bij laden en na voices loaded
-if (typeof window !== 'undefined') {
-  testNativeSpeech()
-  window.speechSynthesis?.addEventListener?.('voiceschanged', testNativeSpeech)
-}
-
 // Cache voor Nederlandse stem
 let cachedNLVoice = null
+let nlVoiceChecked = false
 
-// Zoek beste Nederlandse stem - probeer Fenna of Maarten (niet Colette die afkortingen raar doet)
+// Zoek beste Nederlandse stem
 const getNLVoice = () => {
   if (cachedNLVoice) return cachedNLVoice
+  if (typeof window === 'undefined') return null
 
   const voices = window.speechSynthesis?.getVoices() || []
+  if (voices.length === 0) return null
+
+  nlVoiceChecked = true
 
   // Probeer Fenna of Maarten eerst (Colette heeft afkortingen-bug)
   const fenna = voices.find(v => v.name.includes('Fenna'))
   const maarten = voices.find(v => v.name.includes('Maarten'))
   const nlNL = voices.find(v => v.lang === 'nl-NL' && !v.name.includes('Colette'))
-  const anyNL = voices.find(v => v.lang === 'nl-NL')
+  const anyNL = voices.find(v => v.lang.startsWith('nl'))
 
   cachedNLVoice = fenna || maarten || nlNL || anyNL || null
-  console.log('Selected voice:', cachedNLVoice?.name)
+  console.log('Selected NL voice:', cachedNLVoice?.name || 'none (using lang=nl-NL)')
   return cachedNLVoice
 }
 
@@ -68,55 +55,69 @@ const getNLVoice = () => {
 if (typeof window !== 'undefined') {
   window.speechSynthesis?.addEventListener?.('voiceschanged', () => {
     cachedNLVoice = null
+    nlVoiceChecked = false
     getNLVoice()
   })
+  // Trigger initieel laden
+  getNLVoice()
 }
 
 // Speech helper - met optionele stopTime om TTS te stoppen na X ms
+// Strategie: native Web Speech API met nl-NL als primair,
+// ResponsiveVoice alleen als fallback wanneer native geen NL voice heeft
 const speak = (text, stopTime = null) => {
-  // Clean de tekst
   const cleanText = text.trim()
-  console.log('TTS speak:', cleanText, stopTime ? `(stop na ${stopTime}ms)` : '') // DEBUG
+  if (!cleanText) return
 
-  // Probeer ResponsiveVoice eerst (betrouwbaarder)
+  // Probeer native Web Speech API eerst
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(cleanText)
+
+    // Altijd nl-NL forceren - dit werkt op de meeste browsers
+    // zelfs zonder een specifiek genoemde NL voice
+    utterance.lang = 'nl-NL'
+    utterance.rate = 0.85
+    utterance.pitch = 1.0
+
+    const nlVoice = getNLVoice()
+    if (nlVoice) {
+      utterance.voice = nlVoice
+      utterance.lang = nlVoice.lang
+    }
+
+    // Check: als we voices hebben gecheckt en geen NL gevonden,
+    // probeer ResponsiveVoice als fallback
+    if (nlVoiceChecked && !nlVoice && window.responsiveVoice) {
+      window.responsiveVoice.cancel()
+      window.responsiveVoice.speak(cleanText, 'Dutch Female', {
+        rate: 0.9,
+        pitch: 1.0,
+      })
+      if (stopTime) {
+        setTimeout(() => window.responsiveVoice.cancel(), stopTime)
+      }
+      return
+    }
+
+    window.speechSynthesis.speak(utterance)
+
+    if (stopTime) {
+      setTimeout(() => window.speechSynthesis.cancel(), stopTime)
+    }
+    return
+  }
+
+  // Geen native speech - gebruik ResponsiveVoice
   if (window.responsiveVoice) {
     window.responsiveVoice.cancel()
     window.responsiveVoice.speak(cleanText, 'Dutch Female', {
       rate: 0.9,
       pitch: 1.0,
     })
-
-    // Stop na bepaalde tijd als stopTime is meegegeven
     if (stopTime) {
-      setTimeout(() => {
-        window.responsiveVoice.cancel()
-      }, stopTime)
+      setTimeout(() => window.responsiveVoice.cancel(), stopTime)
     }
-    return
-  }
-
-  // Fallback naar native Web Speech API
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(cleanText)
-
-  // Forceer Nederlands
-  utterance.lang = 'nl-NL'
-  utterance.rate = 0.8
-  utterance.pitch = 1.0
-
-  const nlVoice = getNLVoice()
-  if (nlVoice) {
-    utterance.voice = nlVoice
-    utterance.lang = nlVoice.lang
-  }
-
-  window.speechSynthesis.speak(utterance)
-
-  // Stop na bepaalde tijd als stopTime is meegegeven
-  if (stopTime) {
-    setTimeout(() => {
-      window.speechSynthesis.cancel()
-    }, stopTime)
   }
 }
 

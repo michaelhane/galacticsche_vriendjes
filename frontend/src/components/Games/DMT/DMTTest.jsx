@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { getWordsForTest, DMT_CONSTANTS } from './dmtWords'
+import { SnowboardScene } from './SnowboardScene'
+import { useDMT } from '../../../hooks/useDMT'
 import { ArrowLeft, Info } from '../../shared/Icons'
 
 /**
@@ -127,8 +129,17 @@ const TimerDisplay = ({ secondsLeft }) => {
 
 // --- BetweenScreen ---
 
-const BetweenScreen = ({ cardNumber, wordsRead, onNext }) => (
+const BetweenScreen = ({ cardNumber, wordsRead, onNext, onQuit }) => (
   <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
+    {/* Terug/stoppen knop */}
+    <button
+      onClick={onQuit}
+      className="absolute top-4 left-4 p-2 text-gray-500 hover:text-gray-700 transition-colors"
+      aria-label="Stoppen"
+    >
+      <ArrowLeft size={24} />
+    </button>
+
     <div className="max-w-md w-full text-center space-y-6">
       <div className="text-4xl">📋</div>
       <h2 className="text-xl font-bold text-gray-800">
@@ -152,6 +163,14 @@ const BetweenScreen = ({ cardNumber, wordsRead, onNext }) => (
           </button>
         </div>
       )}
+
+      {/* Stoppen knop */}
+      <button
+        onClick={onQuit}
+        className="w-full py-3 px-6 bg-white hover:bg-gray-50 text-gray-500 text-sm font-medium rounded-xl transition-colors border border-gray-200"
+      >
+        Stoppen en terug naar menu
+      </button>
     </div>
   </div>
 )
@@ -240,6 +259,9 @@ const InfoModal = ({ withParent, onClose }) => (
 // --- Hoofd Component ---
 
 export const DMTTest = ({ speak, onBack, onComplete, aviLevel, withParent }) => {
+  const { getMilestone } = useDMT()
+  const milestone = getMilestone(aviLevel)
+
   // --- State Machine ---
   const [phase, setPhase] = useState('intro') // intro | playing | between | done
   const [currentCard, setCurrentCard] = useState(1)
@@ -439,6 +461,7 @@ export const DMTTest = ({ speak, onBack, onComplete, aviLevel, withParent }) => 
         cardNumber={lastResult.cardNumber}
         wordsRead={lastResult.wordsRead}
         onNext={nextCard}
+        onQuit={onBack}
       />
     )
   }
@@ -473,11 +496,19 @@ export const DMTTest = ({ speak, onBack, onComplete, aviLevel, withParent }) => 
         </button>
       </div>
 
+      {/* Compact bergje als motivatie */}
+      <div className="px-4 pt-1">
+        <SnowboardScene
+          position={milestone?.snowboardPosition || 0}
+          compact={true}
+        />
+      </div>
+
       {/* Woorden Grid */}
       <div
         ref={gridRef}
         className={`flex-1 overflow-y-auto ${withParent ? 'pb-20' : 'pb-4'}`}
-        style={{ maxHeight: withParent ? 'calc(100vh - 120px)' : 'calc(100vh - 56px)' }}
+        style={{ maxHeight: withParent ? 'calc(100vh - 180px)' : 'calc(100vh - 120px)' }}
       >
         <div className="grid grid-cols-5 gap-x-3 gap-y-1 p-4">
           {currentWords.map((wordObj, displayIndex) => {

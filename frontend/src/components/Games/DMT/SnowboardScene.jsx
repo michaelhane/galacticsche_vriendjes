@@ -40,11 +40,36 @@ export const SnowboardScene = ({
     }
   }, [playHalfpipe, onHalfpipeComplete])
 
-  // Snowboarder positie berekening (langs de kabelbaan)
-  const boarderX = 50 + position * 300
-  const boarderY = 280 - position * 220
+  // Zig-zag skilift pad (waypoints op de berg)
+  const liftPath = [
+    { x: 80, y: 280 },   // start (onderkant links)
+    { x: 270, y: 220 },  // zig rechts
+    { x: 120, y: 170 },  // zag links
+    { x: 250, y: 120 },  // zig rechts
+    { x: 160, y: 75 },   // zag links
+    { x: 185, y: 48 },   // top van de berg
+  ]
 
-  // Milestone posities
+  // SVG path string voor de kabelbaan
+  const liftPathStr = `M ${liftPath[0].x},${liftPath[0].y} ` +
+    liftPath.slice(1).map(p => `L ${p.x},${p.y}`).join(' ')
+
+  // Bereken positie langs het zigzag pad
+  const getPositionOnPath = (t) => {
+    const totalSegments = liftPath.length - 1
+    const segIndex = Math.min(Math.floor(t * totalSegments), totalSegments - 1)
+    const segT = (t * totalSegments) - segIndex
+    const p1 = liftPath[segIndex]
+    const p2 = liftPath[Math.min(segIndex + 1, liftPath.length - 1)]
+    return {
+      x: p1.x + (p2.x - p1.x) * segT,
+      y: p1.y + (p2.y - p1.y) * segT
+    }
+  }
+
+  const boarderPos = getPositionOnPath(position)
+
+  // Milestone posities (langs het zigzag pad)
   const milestones = [0.25, 0.50, 0.75, 1.0]
 
   // Sneeuwvlokken configuratie
@@ -71,8 +96,8 @@ export const SnowboardScene = ({
     }
   })
 
-  // Kabelbaan stoeltjes posities
-  const chairPositions = [0.15, 0.35, 0.55, 0.75]
+  // Stoeltjes voor de skilift (5 stuks, gestaffeld)
+  const chairOffsets = [0, 0.2, 0.4, 0.6, 0.8]
 
   return (
     <div className={`relative w-full ${compact ? 'max-w-xs' : 'max-w-md'} mx-auto`}>
@@ -211,43 +236,48 @@ export const SnowboardScene = ({
           />
         </g>
 
-        {/* Kabelbaan kabel */}
-        <line
-          x1="40" y1="290"
-          x2="360" y2="55"
+        {/* Kabelbaan zig-zag kabel */}
+        <path
+          id="liftPathRef"
+          d={liftPathStr}
+          fill="none"
           stroke="#475569"
           strokeWidth="2"
           strokeDasharray="8,4"
         />
 
-        {/* Kabelbaan palen */}
+        {/* Kabelbaan palen bij de bochten */}
         <g stroke="#64748B" strokeWidth="3">
-          {/* Onderpaal */}
-          <line x1="40" y1="290" x2="40" y2="310" />
-          <line x1="30" y1="310" x2="50" y2="310" />
-          {/* Bovenpaal */}
-          <line x1="360" y1="55" x2="360" y2="75" />
-          <line x1="350" y1="75" x2="370" y2="75" />
+          {liftPath.map((p, i) => (
+            <g key={`pole-${i}`}>
+              <line x1={p.x} y1={p.y} x2={p.x} y2={p.y + 18} />
+              <line x1={p.x - 8} y1={p.y + 18} x2={p.x + 8} y2={p.y + 18} />
+            </g>
+          ))}
         </g>
 
-        {/* Decoratieve stoeltjes op de kabelbaan */}
-        {chairPositions.map((cp, i) => {
-          const cx = 40 + cp * 320
-          const cy = 290 - cp * 235
-          return (
-            <g key={`chair-${i}`} opacity="0.5">
-              {/* Haak aan kabel */}
-              <line x1={cx} y1={cy} x2={cx} y2={cy + 10} stroke="#64748B" strokeWidth="1.5" />
-              {/* Stoeltje */}
-              <rect x={cx - 5} y={cy + 10} width="10" height="6" rx="1" fill="#64748B" />
-            </g>
-          )
-        })}
+        {/* Geanimeerde stoeltjes op de kabelbaan */}
+        {chairOffsets.map((offset, i) => (
+          <g key={`chair-${i}`} opacity="0.6">
+            {/* Haak */}
+            <line x1="0" y1="-6" x2="0" y2="2" stroke="#64748B" strokeWidth="1.5" />
+            {/* Stoeltje */}
+            <rect x="-5" y="2" width="10" height="6" rx="1" fill="#64748B" />
+            <animateMotion
+              dur="15s"
+              repeatCount="indefinite"
+              begin={`${offset * 15}s`}
+            >
+              <mpath href="#liftPathRef" />
+            </animateMotion>
+          </g>
+        ))}
 
-        {/* Milestone markers langs de kabelbaan */}
+        {/* Milestone markers langs het zigzag pad */}
         {milestones.map((mp, i) => {
-          const mx = 50 + mp * 300
-          const my = 280 - mp * 220
+          const mPos = getPositionOnPath(mp)
+          const mx = mPos.x
+          const my = mPos.y
           const reached = position >= mp
           return (
             <g key={`milestone-${i}`}>
@@ -275,7 +305,7 @@ export const SnowboardScene = ({
 
         {/* Snowboarder op de skilift */}
         {!isAnimating && (
-          <g transform={`translate(${boarderX}, ${boarderY})`}>
+          <g transform={`translate(${boarderPos.x}, ${boarderPos.y})`}>
             {/* Haak aan kabel */}
             <line x1="0" y1="-18" x2="0" y2="-8" stroke="#64748B" strokeWidth="2" />
             {/* Dwarsbalkie */}

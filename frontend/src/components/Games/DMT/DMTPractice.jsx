@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getWordsForPractice, calculateWPM } from './dmtWords'
+import { getSmartWordsForPractice, getWordsForPractice, calculateWPM } from './dmtWords'
+import { SnowboardScene } from './SnowboardScene'
 import { recordAttempt } from '../../../services/spacedRepetition'
 import { useAuth } from '../../../hooks/useAuth'
+import { useDMT } from '../../../hooks/useDMT'
 import { ArrowLeft, Volume2, Info } from '../../shared/Icons'
 
 /**
@@ -20,6 +22,8 @@ import { ArrowLeft, Volume2, Info } from '../../shared/Icons'
  */
 export const DMTPractice = ({ speak, onBack, onComplete, aviLevel, settings }) => {
   const { user } = useAuth()
+  const { getMilestone } = useDMT()
+  const milestone = getMilestone(aviLevel)
 
   // --- State ---
   const [showIntro, setShowIntro] = useState(true)
@@ -48,15 +52,25 @@ export const DMTPractice = ({ speak, onBack, onComplete, aviLevel, settings }) =
     ? 1 - (remainingSeconds / settings.timeLimit)
     : currentIndex / totalTarget
 
-  // --- Woorden laden ---
+  // --- Woorden laden (slim: langzame woorden komen vaker terug) ---
   useEffect(() => {
     const count = isTimeMode.current ? 200 : (settings.wordCount || 50)
-    const loaded = getWordsForPractice(aviLevel, count)
-    setWords(loaded)
-    if (loaded.length > 0) {
-      setDisplayWord(loaded[0].word)
+
+    const loadWords = async () => {
+      let loaded
+      try {
+        loaded = await getSmartWordsForPractice(user?.id, aviLevel, count)
+      } catch {
+        loaded = getWordsForPractice(aviLevel, count)
+      }
+      setWords(loaded)
+      if (loaded.length > 0) {
+        setDisplayWord(loaded[0].word)
+      }
     }
-  }, [aviLevel, settings.wordCount])
+
+    loadWords()
+  }, [aviLevel, settings.wordCount, user?.id])
 
   // --- Timer ---
   useEffect(() => {
@@ -83,26 +97,6 @@ export const DMTPractice = ({ speak, onBack, onComplete, aviLevel, settings }) =
         timerInterval.current = null
       }
     }
-  }, [showIntro, isFinished])
-
-  // Houd ref in sync met nieuwste handleNext
-  useEffect(() => {
-    handleNextRef.current = handleNext
-  }, [handleNext])
-
-  // --- Keyboard support ---
-  useEffect(() => {
-    if (showIntro || isFinished) return
-
-    const handleKeyDown = (e) => {
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.preventDefault()
-        handleNextRef.current?.()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
   }, [showIntro, isFinished])
 
   // --- Game functies ---
@@ -217,6 +211,26 @@ export const DMTPractice = ({ speak, onBack, onComplete, aviLevel, settings }) =
       }, 250)
     }, 200)
   }, [isFinished, words, currentIndex, wordTimes, totalTarget, user?.id, onComplete])
+
+  // Houd ref in sync met nieuwste handleNext
+  useEffect(() => {
+    handleNextRef.current = handleNext
+  }, [handleNext])
+
+  // --- Keyboard support ---
+  useEffect(() => {
+    if (showIntro || isFinished) return
+
+    const handleKeyDown = (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault()
+        handleNextRef.current?.()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showIntro, isFinished])
 
   // --- Timer formattering ---
   const formatTime = (seconds) => {
@@ -355,12 +369,21 @@ export const DMTPractice = ({ speak, onBack, onComplete, aviLevel, settings }) =
         </div>
       )}
 
-      {/* Woord display */}
+      {/* Compact bergje als motivatie */}
+      <div className="px-6 pt-2">
+        <SnowboardScene
+          position={milestone?.snowboardPosition || 0}
+          compact={true}
+        />
+      </div>
+
+      {/* Woord display - klik/tap op het woord gaat ook naar volgende */}
       <div className="flex-1 flex flex-col items-center justify-center px-6">
         <div
+          onClick={handleNext}
           className={`
             bg-white rounded-3xl shadow-xl p-8 min-h-[200px] w-full max-w-md
-            flex items-center justify-center
+            flex items-center justify-center cursor-pointer
             transition-all duration-200 ease-out
             ${slideDirection === 'out' ? 'opacity-0 -translate-x-16' : ''}
             ${slideDirection === 'in' ? 'opacity-0 translate-x-16' : ''}
