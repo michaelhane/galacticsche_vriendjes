@@ -6,7 +6,7 @@ export const Login = () => {
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState(null)
-  const [step, setStep] = useState('email') // 'email' of 'code'
+  const [codeSent, setCodeSent] = useState(false)
   const { signInWithOtp, verifyOtp, signInDemo } = useAuth()
 
   // Check voor geheime start parameter in URL: ?start=ruimte
@@ -47,10 +47,9 @@ export const Login = () => {
     }
   }
 
-  // Stap 1: Vraag code aan via email
-  const handleRequestCode = async (e) => {
-    e.preventDefault()
-    if (!email) return
+  // Vraag code aan via email
+  const handleRequestCode = async () => {
+    if (!email || loading) return
 
     setLoading(true)
     setMessage(null)
@@ -59,37 +58,66 @@ export const Login = () => {
 
     if (error) {
       console.error('Login error:', error)
-      // Toon specifieke error message
-      const errorMsg = error.message?.includes('rate')
-        ? 'Te veel pogingen. Wacht even en probeer opnieuw.'
-        : error.message || 'Er ging iets mis. Probeer opnieuw.'
-      setMessage({ type: 'error', text: errorMsg })
+      const isRateLimit = error.message?.includes('rate') || error.status === 429
+      if (isRateLimit) {
+        setMessage({
+          type: 'warning',
+          text: 'Even wachten met nieuwe codes. Heb je al een code? Vul hem hieronder in!'
+        })
+      } else {
+        setMessage({ type: 'error', text: error.message || 'Er ging iets mis. Probeer opnieuw.' })
+      }
     } else {
-      setStep('code')
+      setCodeSent(true)
       setMessage({
         type: 'success',
-        text: '✨ Email verstuurd! Check je inbox voor de code.'
+        text: 'Code verstuurd! Check je inbox.'
       })
     }
     setLoading(false)
   }
 
-  // Stap 2: Verifieer de code
-  const handleVerifyCode = async (e) => {
-    e.preventDefault()
-    if (!code || code.length < 6) return // Accepteer 6-8 cijfers
+  // Verifieer de code
+  const handleVerifyCode = async () => {
+    if (!email) {
+      setMessage({ type: 'error', text: 'Vul eerst je email in.' })
+      return
+    }
+    if (!code || code.length < 6) {
+      setMessage({ type: 'error', text: 'Vul de 6-8 cijferige code in uit je email.' })
+      return
+    }
+    if (loading) return
 
     setLoading(true)
-    setMessage(null)
+    setMessage({ type: 'info', text: 'Code controleren...' })
 
-    const { error } = await verifyOtp(email, code)
+    try {
+      const { error } = await verifyOtp(email, code)
 
-    if (error) {
-      setMessage({ type: 'error', text: 'Code onjuist. Probeer opnieuw.' })
-      setCode('')
+      if (error) {
+        console.error('Verify error:', error)
+        setMessage({ type: 'error', text: `Code onjuist of verlopen: ${error.message}` })
+        setCode('')
+      } else {
+        setMessage({ type: 'success', text: 'Ingelogd!' })
+      }
+    } catch (err) {
+      console.error('Verify exception:', err)
+      setMessage({ type: 'error', text: `Fout: ${err.message}` })
     }
-    // Als success, wordt automatisch ingelogd via onAuthStateChange
     setLoading(false)
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    // Als er een code is ingevuld → verifieer
+    if (code.length >= 6) {
+      handleVerifyCode()
+    } else {
+      // Geen code → vraag nieuwe aan
+      handleRequestCode()
+    }
   }
 
   return (
@@ -111,105 +139,90 @@ export const Login = () => {
           </p>
         </div>
 
-        {step === 'email' ? (
-          <form onSubmit={handleRequestCode} className="space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                📧 Email van papa of mama
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@voorbeeld.nl"
-                className="w-full text-lg p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none"
-                required
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Email veld - altijd zichtbaar */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              📧 Email van papa of mama
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@voorbeeld.nl"
+              className="w-full text-lg p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none"
+              required
+            />
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading || !email}
-              className={`w-full py-4 rounded-2xl text-xl font-bold transition transform hover:scale-105 ${
-                loading || !email
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-lg'
-              }`}
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="animate-spin">🌀</span> Even wachten...
-                </span>
-              ) : (
-                '📨 Stuur Code'
-              )}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyCode} className="space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">
-                🔢 Voer de code in
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={8}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="00000000"
-                className="w-full text-2xl text-center tracking-[0.3em] p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none font-mono"
-                autoFocus
-              />
-              <p className="text-sm text-gray-500 mt-2 text-center">
-                Verstuurd naar {email}
-              </p>
-            </div>
+          {/* Code veld - altijd zichtbaar */}
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              🔢 Inlogcode (uit je email)
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={8}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="Heb je al een code? Vul hem hier in"
+              className="w-full text-xl text-center tracking-[0.2em] p-4 rounded-2xl border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none font-mono"
+            />
+          </div>
 
+          {/* Knoppen - altijd beide zichtbaar */}
+          <div className="space-y-3 pt-2">
             <button
-              type="submit"
-              disabled={loading || code.length < 6}
-              className={`w-full py-4 rounded-2xl text-xl font-bold transition transform hover:scale-105 ${
-                loading || code.length < 6
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-green-500 hover:bg-green-600 text-white shadow-lg'
-              }`}
+              type="button"
+              onClick={handleVerifyCode}
+              className="w-full py-4 rounded-2xl text-xl font-bold transition transform hover:scale-105 bg-green-500 hover:bg-green-600 text-white shadow-lg"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="animate-spin">🌀</span> Controleren...
                 </span>
               ) : (
-                '✓ Inloggen'
+                '✓ Inloggen met code'
               )}
             </button>
 
             <button
               type="button"
-              onClick={() => { setStep('email'); setCode(''); setMessage(null) }}
-              className="w-full py-2 text-indigo-600 hover:text-indigo-800 font-medium"
+              onClick={handleRequestCode}
+              disabled={loading || !email}
+              className={`w-full py-3 rounded-2xl text-base font-medium transition ${
+                loading || !email
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'
+              }`}
             >
-              ← Andere email gebruiken
+              📨 Nieuwe code aanvragen
             </button>
-          </form>
-        )}
+          </div>
+        </form>
 
+        {/* Berichten */}
         {message && (
-          <div className={`mt-6 p-4 rounded-2xl text-center ${
-            message.type === 'success' 
-              ? 'bg-green-100 text-green-800 border-2 border-green-200' 
+          <div className={`mt-6 p-4 rounded-2xl text-center text-sm ${
+            message.type === 'success'
+              ? 'bg-green-100 text-green-800 border-2 border-green-200'
+              : message.type === 'warning'
+              ? 'bg-amber-100 text-amber-800 border-2 border-amber-200'
+              : message.type === 'info'
+              ? 'bg-blue-100 text-blue-800 border-2 border-blue-200'
               : 'bg-red-100 text-red-800 border-2 border-red-200'
           }`}>
             {message.text}
           </div>
         )}
 
-        <div className="mt-8 text-center">
+        <div className="mt-6 text-center">
           <p className="text-sm text-gray-500">
-            {step === 'email'
-              ? 'We sturen een code naar je email.'
-              : 'De code is 10 minuten geldig.'
+            {codeSent
+              ? 'Check je inbox. De code is 1 uur geldig.'
+              : 'We sturen een code naar je email. Of vul een bestaande code in.'
             }
           </p>
         </div>
