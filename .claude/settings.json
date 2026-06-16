@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rev-list *)",
+      "Bash(nslookup *)",
+      "mcp__playwright__browser_resize",
+      "mcp__visualize__read_me",
+      "mcp__Claude_in_Chrome__read_page"
+    ]
+  }
+}
