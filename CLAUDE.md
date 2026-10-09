@@ -7,7 +7,7 @@ Galactische Vrienden is een educatieve leesapp voor kinderen in groep 3-5. De ap
 ## Tech Stack
 
 - **Frontend**: React 18 + Vite + Tailwind CSS
-- **Backend**: Express.js (Gemini API proxy + OCR)
+- **Backend**: Express.js (Claude API via `@anthropic-ai/sdk` voor verhalen, quiz, OCR, uitleg; Gemini alleen voor `/api/generate-syllable-words`)
 - **Database**: Supabase (PostgreSQL + Auth)
 - **Deployment**: Render.com
 - **PWA**: manifest.json + Service Worker
@@ -151,6 +151,12 @@ cd backend && npm install && npm run dev
 cd frontend && npm run build
 ```
 
+### Verificatie
+Er is **geen** test-, lint- of typecheck-script en geen testframework (`DMTTest.jsx` is een game-component, geen test). Voeg geen tooling toe zonder overleg. Wat er wel is:
+- Backend, syntaxis: `node --check backend/server.js` (geen `npm install` nodig).
+- Frontend, compileert het: `cd frontend && npm run build` (Vite; vangt import- en JSX-fouten, geen gedrag; vereist eerst `npm install`).
+- Gedrag: handmatig in de browser (`npm run dev` in `backend/` en `frontend/`, poorten 3050/3051). Een wijziging in een game of in Supabase-logica is pas klaar als je hem zo hebt doorlopen; meld expliciet als je dat niet kon.
+
 ## Environment Variables
 
 ### Frontend (.env)
@@ -162,6 +168,7 @@ VITE_API_URL=http://localhost:3050
 
 ### Backend (.env)
 ```
+ANTHROPIC_API_KEY=sk-ant-xxx
 GEMINI_API_KEY=AIzaxxx
 FRONTEND_URL=http://localhost:3051
 PORT=3050
@@ -172,8 +179,12 @@ PORT=3050
 | Endpoint | Methode | Beschrijving |
 |----------|---------|--------------|
 | `/health` | GET | Health check |
-| `/api/generate-story` | POST | AI verhaal genereren |
-| `/api/ocr-scan` | POST | Boek scanner OCR |
+| `/api/generate-story` | POST | AI verhaal genereren (Claude) |
+| `/api/generate-quiz` | POST | Begrijpend-lezen quiz bij een verhaal (Claude) |
+| `/api/generate-syllable-words` | POST | Woorden voor Code Kraken (Gemini) |
+| `/api/ocr-scan` | POST | Boek scanner OCR (Claude vision) |
+| `/api/analyze-expression` | POST | Leesexpressie analyseren (Claude) |
+| `/api/explain-word` | POST | Woord-uitleg voor Woord Ontdekker (Claude) |
 
 ## Database Tabellen
 
